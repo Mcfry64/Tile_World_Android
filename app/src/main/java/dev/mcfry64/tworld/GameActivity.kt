@@ -69,7 +69,7 @@ class GameActivity : ComponentActivity() {
         "Level Pack 5 (MS)" to "CCLP5-MS.dac",
     )
     private val lynxSets = linkedMapOf(
-        "Chip's Challenge (Lynx)" to "cc-fixlynx.dac",
+        "Chip's Challenge (LYNX)" to "cc-fixlynx.dac",
         "Intro (Lynx)" to "intro-lynx.dac",
         "Level Pack 1 (Lynx)" to "CCLP1-Lynx.dac",
         "Level Pack 2 (Lynx)" to "CCLXP2.dac",
@@ -87,15 +87,17 @@ class GameActivity : ComponentActivity() {
         val filteredMap = if (hasChips) {
             baseMap
         } else {
-            LinkedHashMap(baseMap.filterKeys { (it != "Chip's Challenge (MS)") && (it != "Chip's Challenge (Lynx)") })
+            LinkedHashMap(baseMap.filterKeys { (it != "Chip's Challenge (MS)") && (it != "Chip's Challenge (LYNX)") && (it != "Chip's Challenge (Lynx)") })
         }
 
-        // Scan custom .dac files in sets/
+        val bundledDacNames = msSets.values + lynxSets.values
+
+        // Scan custom .dac files in sets/ (excluding bundled MS/Lynx .dac files)
         val setsDir = File("$base/sets")
         if (setsDir.exists() && setsDir.isDirectory) {
             setsDir.listFiles { _, name -> name.lowercase().endsWith(".dac") }?.forEach { dacFile ->
                 val dacName = dacFile.name
-                if (!filteredMap.containsValue(dacName)) {
+                if (!bundledDacNames.contains(dacName) && !filteredMap.containsValue(dacName)) {
                     val friendlyName = dacFile.nameWithoutExtension
                     filteredMap[friendlyName] = dacName
                 }
