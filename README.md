@@ -1,6 +1,6 @@
 # TileWorld for Android
 
-An Android port of [Tile World](https://github.com/BR903/TileWorld), the open-source engine for *Chip's Challenge* — a classic puzzle game originally released in 1989. Maintained and enhanced by **Mcfry64**.
+An Android port of [Tile World](https://github.com/SicklySilverMoon/tworld), the open-source engine for *Chip's Challenge* — a classic puzzle game originally released in 1989. Maintained and enhanced by **Mcfry64**.
 
 The game engine runs natively via JNI with no SDL dependency. Audio uses AAudio, graphics are rendered to a `SurfaceView` via Two-Pass Sharp Bilinear Sub-pixel scaling, and input comes from Android key events, physical keyboards, gamepads, and touchscreen controls.
 
@@ -8,7 +8,6 @@ The game engine runs natively via JNI with no SDL dependency. Audio uses AAudio,
 
 ## Features
 
-- **Full MS & Lynx Ruleset Simulation**: 100% faithful logic for both Microsoft and Lynx rulesets.
 - **Open-Source Level Sets**: Bundled with 100% free community level packs (CCLP1, CCLP2, CCLP3, CCLP4, CCLP5, and Intro). Automatic detection of user-provided level files on storage.
 - **Pixel-Perfect Tile Rendering**: Two-Pass Sharp Bilinear Sub-pixel scaling for zero pixel shimmering and razor-sharp 2D tile graphics.
 - **Custom Content & AUTO Linkage**:
@@ -19,11 +18,10 @@ The game engine runs natively via JNI with no SDL dependency. Audio uses AAudio,
 - **Side-by-Side Control Dropdowns**:
   - **Touchscreen Controls**: `Touch Nav`, `Swipe Classic`, `Swipe Fluid`, `Swipe Precise`, `None`
   - **Onscreen Controls**: `None`, `Arrow Keys`, `D-Pad`
-  - Universal tap anywhere on screen or controls after level completion/death to proceed or restart.
 - **Keyboard & Gamepad Support**:
   - Full USB & Bluetooth keyboard support (WASD, Arrow keys, Numpad) with state-based continuous movement and OS auto-repeat filtering.
   - Full USB & Bluetooth gamepad/joystick support (analog sticks, D-pad hat, action buttons).
-- **Game Speed Controller**: 25% Crawl up to 300% Ludicrous speed with secret 10-second hold unlock.
+- **Game Speed Controller**: 25% Crawl up to 300% Ludicrous speed with secret 10-second hold on (START GAME) to unlock.
 - **Level Password Unlock System**: Password parser and level unlock notifications.
 - **Dynamic Level Set Scanner**: Automatically scans user-added `.dac` files in `sets/` and counts levels dynamically.
 
@@ -86,29 +84,6 @@ Place `.ogg` music files in a custom theme folder under `/sdcard/Android/data/de
      - **Level 4**: `C2.ogg` *(Rotates continuously per level)*
 2. **Random Track Engine**:
    - If a folder contains other `.ogg` files (e.g. `track1.ogg`, `track2.ogg`), the game selects a random track from that folder for each level.
-
----
-
-### 🔗 AUTO Audio Theme Linkage
-When BGM or SFX Theme is set to **`AUTO`** in the launcher:
-- The app automatically looks for a BGM or SFX folder matching the name of the currently selected Tileset (e.g. Tileset `MySet` $\rightarrow$ checks `res/bgm/MySet/` & `res/sfx/MySet/`).
-- Switching Tilesets in the launcher automatically updates BGM and SFX themes to match!
-- **Fallbacks**: If a Tileset has no matching folder, BGM falls back to `aki` and SFX falls back to `Tile World`.
-
----
-
-## Changelog
-
-### v3.4.1 (Current)
-- Maintained by **Mcfry64** under package `dev.mcfry64.tworld`
-- Added AUTO Audio Theme selection for BGM and SFX themes based on active Tileset name.
-- Added custom `PickupKeySound` and `StopBgmOnLevelComplete` support in `rc` files.
-- Added recessed black LED display box with live scrolling green matrix ticker.
-- Reorganized Controls section into side-by-side Touchscreen Controls and Onscreen Controls dropdowns.
-- Added state-based WASD / Arrow key movement filtering for smooth continuous keyboard movement.
-- Added universal screen/controls tap-to-continue or restart on level completion/death.
-- Added dynamic user `.dac` level set file scanner in `sets/`.
-- Automated build APK naming to `TileWorld-v3.4.1-debug.apk`.
 
 ---
 
