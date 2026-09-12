@@ -30,7 +30,6 @@ object GameEngine {
     @JvmStatic external fun nativeCopyPixels(bitmap: Bitmap)
     @JvmStatic external fun nativeGetScreenWidth(): Int
     @JvmStatic external fun nativeGetScreenHeight(): Int
-    @JvmStatic external fun nativeGetTileScale(): Int
     @JvmStatic external fun nativeIsRunning(): Boolean
     @JvmStatic external fun nativeStop()
     /** Returns +1 (show keyboard), -1 (hide keyboard), or 0 (no change). */
@@ -75,46 +74,50 @@ object GameEngine {
     fun getAvailableSfxThemes(context: Context): List<String> {
         val (res, _, _) = extractAssets(context)
         val sfxDir = File(res, "sfx")
-        val themes = mutableListOf("Tile World")
+        val themes = mutableSetOf("Tile World")
 
         if (sfxDir.exists() && sfxDir.isDirectory) {
             sfxDir.listFiles()?.forEach { file ->
                 if (file.isDirectory) {
                     val rcFile = File(file, "rc")
-                    if (rcFile.exists() && rcFile.isFile) {
-                        if (file.name != "Tile World") {
+                    if (rcFile.exists() && rcFile.isFile && (file.name != "Tile World")) {
+                        themes.add(file.name)
+                    }
+                }
+            }
+        }
+        val sortedSubThemes = themes.asSequence().filter { it != "Tile World" }.sortedWith(String.CASE_INSENSITIVE_ORDER).toList()
+        return listOf("Tile World") + sortedSubThemes
+    }
+
+    /** Scans res/bgm/ on disk for directories containing .ogg files.
+     *  Note: "MS" theme is ONLY included if c1.ogg, c2.ogg, and ca.ogg are all present. */
+    fun getAvailableBgmThemes(context: Context): List<String> {
+        val (res, _, _) = extractAssets(context)
+        val bgmDir = File(res, "bgm")
+        val themes = mutableSetOf<String>()
+
+        if (bgmDir.exists() && bgmDir.isDirectory) {
+            bgmDir.listFiles()?.forEach { file ->
+                if (file.isDirectory) {
+                    val oggFiles = file.listFiles()?.map { it.name.lowercase() } ?: emptyList()
+                    if (file.name.equals("MS", ignoreCase = true)) {
+                        val hasC1 = oggFiles.contains("c1.ogg")
+                        val hasC2 = oggFiles.contains("c2.ogg")
+                        val hasCA = oggFiles.contains("ca.ogg")
+                        if (hasC1 && hasC2 && hasCA) {
+                            themes.add("MS")
+                        }
+                    } else {
+                        val hasOgg = oggFiles.any { it.endsWith(".ogg") }
+                        if (hasOgg) {
                             themes.add(file.name)
                         }
                     }
                 }
             }
         }
-        val sortedSubThemes = themes.drop(1).sortedWith(String.CASE_INSENSITIVE_ORDER)
-        return listOf("Tile World") + sortedSubThemes
-    }
-
-    /** Scans res/bgm/ on disk for directories containing .ogg files. */
-    fun getAvailableBgmThemes(context: Context): List<String> {
-        val (res, _, _) = extractAssets(context)
-        val bgmDir = File(res, "bgm")
-        val themes = mutableListOf<String>()
-
-        if (bgmDir.exists() && bgmDir.isDirectory) {
-            bgmDir.listFiles()?.forEach { file ->
-                if (file.isDirectory) {
-                    val hasOgg = file.listFiles()?.any { it.extension.lowercase() == "ogg" } == true
-                    if (hasOgg) {
-                        themes.add(file.name)
-                    }
-                }
-            }
-        }
-        if (themes.isEmpty()) {
-            themes.add("MS")
-        } else {
-            themes.sortWith(String.CASE_INSENSITIVE_ORDER)
-        }
-        return themes
+        return themes.sortedWith(String.CASE_INSENSITIVE_ORDER)
     }
 
     /** Extract APK assets to /sdcard/Android/data/dev.mcfry64.tworld/ so files
@@ -145,12 +148,8 @@ object GameEngine {
             destFileDir.listFiles()?.forEach { existingFile ->
                 if (!names.contains(existingFile.name)) {
                     // Do not delete user custom theme directories inside res/sfx or res/bgm
-                    val isCustomSfxTheme = assetSubDir.endsWith("sfx") &&
-                            existingFile.isDirectory &&
-                            File(existingFile, "rc").exists()
-                    val isCustomBgmTheme = assetSubDir.endsWith("bgm") &&
-                            existingFile.isDirectory &&
-                            existingFile.listFiles()?.any { it.extension.lowercase() == "ogg" } == true
+                    val isCustomSfxTheme = assetSubDir.endsWith("sfx") && existingFile.isDirectory && File(existingFile, "rc").exists()
+                    val isCustomBgmTheme = assetSubDir.endsWith("bgm") && existingFile.isDirectory && (existingFile.listFiles()?.any { it.extension.lowercase() == "ogg" } == true)
                     if (!isCustomSfxTheme && !isCustomBgmTheme) {
                         existingFile.deleteRecursively()
                     }

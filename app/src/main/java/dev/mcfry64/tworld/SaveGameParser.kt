@@ -6,6 +6,8 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
+private fun Short.reverseBytes(): Short = java.lang.Short.reverseBytes(this)
+
 data class LevelProgress(
     val levelNumber: Int,
     val isSolved: Boolean,
@@ -19,7 +21,7 @@ data class SetProgress(
     val totalLevels: Int,
     val solvedCount: Int,
     val totalScore: Long,
-    val levels: List<LevelProgress>
+    val levels: List<LevelProgress>,
 )
 
 object SaveGameParser {
@@ -62,7 +64,7 @@ object SaveGameParser {
                         val trimmed = line.trim()
                         if (trimmed.startsWith("file")) {
                             val parts = trimmed.split("=", limit = 2)
-                            if (parts.size == 2 && parts[0].trim() == "file") {
+                            if ((parts.size == 2) && (parts[0].trim() == "file")) {
                                 val linkedFile = parts[1].trim()
                                 targetSetName = File(linkedFile).nameWithoutExtension
                                 break
@@ -116,7 +118,7 @@ object SaveGameParser {
             var author = if (i in 1..levelAuthors.size) levelAuthors[i - 1] else ""
             
             // Hardcoded fallback for the original game
-            if (targetSetName.uppercase() == "CHIPS" || setName.lowercase().contains("cc-ms")) {
+            if ((targetSetName.uppercase() == "CHIPS") || setName.lowercase().contains("cc-ms")) {
                 if (author.isEmpty()) author = "Chuck Sommerville"
             }
             
@@ -162,11 +164,11 @@ object SaveGameParser {
                 if (raf.length() < 6) return 149
                 raf.seek(0)
                 val signature = raf.readShort().toInt() and 0xFFFF
-                if (java.lang.Short.reverseBytes(signature.toShort()).toInt() and 0xFFFF != 0xAAAC) return 149
+                if ((signature.toShort().reverseBytes().toInt() and 0xFFFF) != 0xAAAC) return 149
                 
                 raf.seek(4)
                 val count = raf.readShort().toInt() and 0xFFFF
-                return java.lang.Short.reverseBytes(count.toShort()).toInt() and 0xFFFF
+                return (count.toShort().reverseBytes().toInt() and 0xFFFF)
             }
         } catch (_: Exception) {
             Log.e(TAG, "Error parsing DAT: ${file.name}")
@@ -180,38 +182,38 @@ object SaveGameParser {
                 if (raf.length() < 6) return
                 raf.seek(0)
                 val signature = raf.readShort().toInt() and 0xFFFF
-                if (java.lang.Short.reverseBytes(signature.toShort()).toInt() and 0xFFFF != 0xAAAC) return
+                if ((signature.toShort().reverseBytes().toInt() and 0xFFFF) != 0xAAAC) return
                 
                 raf.seek(4)
                 val levelCountLE = raf.readShort().toInt() and 0xFFFF
-                val levelCount = java.lang.Short.reverseBytes(levelCountLE.toShort()).toInt() and 0xFFFF
+                val levelCount = (levelCountLE.toShort().reverseBytes().toInt() and 0xFFFF)
                 
                 raf.seek(6)
-                for (i in 0 until levelCount) {
+                repeat(levelCount) {
                     val startPos = raf.filePointer
                     val recordLenLE = raf.readShort().toInt() and 0xFFFF
-                    val recordLen = java.lang.Short.reverseBytes(recordLenLE.toShort()).toInt() and 0xFFFF
+                    val recordLen = (recordLenLE.toShort().reverseBytes().toInt() and 0xFFFF)
                     
                     // Skip level header (8 bytes)
                     raf.seek(startPos + 2 + 8)
                     
                     // Skip Layer 1
                     val s1LE = raf.readShort().toInt() and 0xFFFF
-                    val s1 = java.lang.Short.reverseBytes(s1LE.toShort()).toInt() and 0xFFFF
+                    val s1 = s1LE.toShort().reverseBytes().toInt() and 0xFFFF
                     raf.skipBytes(s1)
                     
                     // Skip Layer 2
                     val s2LE = raf.readShort().toInt() and 0xFFFF
-                    val s2 = java.lang.Short.reverseBytes(s2LE.toShort()).toInt() and 0xFFFF
+                    val s2 = s2LE.toShort().reverseBytes().toInt() and 0xFFFF
                     raf.skipBytes(s2)
                     
                     // Optional Fields
                     val ofLenLE = raf.readShort().toInt() and 0xFFFF
-                    val ofLen = java.lang.Short.reverseBytes(ofLenLE.toShort()).toInt() and 0xFFFF
+                    val ofLen = ofLenLE.toShort().reverseBytes().toInt() and 0xFFFF
                     
                     var levelName = ""
                     val ofStart = raf.filePointer
-                    while (raf.filePointer < ofStart + ofLen) {
+                    while (raf.filePointer < (ofStart + ofLen)) {
                         val fieldType = raf.readByte().toInt() and 0xFF
                         val fieldLen = raf.readByte().toInt() and 0xFF
                         if (fieldType == 3 || fieldType == 9) {
@@ -241,7 +243,7 @@ object SaveGameParser {
                 if (raf.length() < 8) return
                 val header = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
                 raf.read(header.array())
-                if (header.getInt(0).toLong() and 0xFFFFFFFFL != TWS_SIG) {
+                if ((header.getInt(0).toLong() and 0xFFFFFFFFL) != TWS_SIG) {
                     Log.w(TAG, "TWS signature mismatch for ${file.name}")
                     return
                 }
@@ -249,22 +251,22 @@ object SaveGameParser {
                 val headerExtLen = header[7].toInt() and 0xFF
                 raf.seek(8L + headerExtLen)
 
-                while (raf.filePointer + 4 <= raf.length()) {
+                while ((raf.filePointer + 4) <= raf.length()) {
                     val currentPos = raf.filePointer
                     val nextOffset = raf.readInt().let { Integer.reverseBytes(it) } // Little Endian read
                     if (nextOffset == 0) break
                     
                     // Sanity check for offset to prevent infinite loop or huge seeks
-                    if (nextOffset < 0 || nextOffset > 1_000_000) {
+                    if ((nextOffset !in 0..1_000_000)) {
                         Log.w(TAG, "Invalid TWS nextOffset: $nextOffset at $currentPos")
                         break
                     }
 
-                    if (nextOffset >= 16 && raf.filePointer + 16 <= raf.length()) {
-                        val levelNum = raf.readShort().let { java.lang.Short.reverseBytes(it).toInt() and 0xFFFF }
+                    if ((nextOffset >= 16) && ((raf.filePointer + 16) <= raf.length())) {
+                        val levelNum = raf.readShort().reverseBytes().toInt() and 0xFFFF
                         raf.seek(currentPos + 4 + 12) // Skip to time field (at record offset 16)
                         val bestTime = raf.readInt().let { Integer.reverseBytes(it) }
-                        if (bestTime > 0 && bestTime != 0x7FFFFFFF) {
+                        if ((bestTime > 0) && (bestTime != 0x7FFFFFFF)) {
                              solvedLevels[levelNum] = bestTime
                              Log.v(TAG, "Parsed solved level: $levelNum, time: $bestTime")
                         }
@@ -321,9 +323,8 @@ object SaveGameParser {
         } else if (setFile.name.lowercase().endsWith(".dat")) {
             val companionCcx = File(dataDir, "${setFile.nameWithoutExtension}.ccx").takeIf { it.exists() }
                 ?: File(setsDir, "${setFile.nameWithoutExtension}.ccx").takeIf { it.exists() }
-            if (companionCcx != null) {
-                val ccxResult = findPasswordInCcx(companionCcx, cleanPassword)
-                if (ccxResult != null) return ccxResult
+            companionCcx?.let {
+                findPasswordInCcx(it, cleanPassword)?.let { res -> return res }
             }
             return findPasswordInDat(setFile, cleanPassword)
         }
@@ -358,37 +359,37 @@ object SaveGameParser {
                 if (raf.length() < 6) return null
                 raf.seek(0)
                 val signature = raf.readShort().toInt() and 0xFFFF
-                if (java.lang.Short.reverseBytes(signature.toShort()).toInt() and 0xFFFF != 0xAAAC) return null
+                if ((signature.toShort().reverseBytes().toInt() and 0xFFFF) != 0xAAAC) return null
 
                 raf.seek(4)
                 val levelCountLE = raf.readShort().toInt() and 0xFFFF
-                val levelCount = java.lang.Short.reverseBytes(levelCountLE.toShort()).toInt() and 0xFFFF
+                val levelCount = (levelCountLE.toShort().reverseBytes().toInt() and 0xFFFF)
 
                 raf.seek(6)
                 for (i in 0 until levelCount) {
                     val startPos = raf.filePointer
                     val recordLenLE = raf.readShort().toInt() and 0xFFFF
-                    val recordLen = java.lang.Short.reverseBytes(recordLenLE.toShort()).toInt() and 0xFFFF
+                    val recordLen = (recordLenLE.toShort().reverseBytes().toInt() and 0xFFFF)
 
                     // Skip level header (8 bytes)
                     raf.seek(startPos + 2 + 8)
 
                     // Skip Layer 1
                     val s1LE = raf.readShort().toInt() and 0xFFFF
-                    val s1 = java.lang.Short.reverseBytes(s1LE.toShort()).toInt() and 0xFFFF
+                    val s1 = s1LE.toShort().reverseBytes().toInt() and 0xFFFF
                     raf.skipBytes(s1)
 
                     // Skip Layer 2
                     val s2LE = raf.readShort().toInt() and 0xFFFF
-                    val s2 = java.lang.Short.reverseBytes(s2LE.toShort()).toInt() and 0xFFFF
+                    val s2 = s2LE.toShort().reverseBytes().toInt() and 0xFFFF
                     raf.skipBytes(s2)
 
                     // Optional Fields
                     val ofLenLE = raf.readShort().toInt() and 0xFFFF
-                    val ofLen = java.lang.Short.reverseBytes(ofLenLE.toShort()).toInt() and 0xFFFF
+                    val ofLen = ofLenLE.toShort().reverseBytes().toInt() and 0xFFFF
 
                     val ofStart = raf.filePointer
-                    while (raf.filePointer < ofStart + ofLen) {
+                    while (raf.filePointer < (ofStart + ofLen)) {
                         val fieldType = raf.readByte().toInt() and 0xFF
                         val fieldLen = raf.readByte().toInt() and 0xFF
                         if (fieldType == 6 && fieldLen >= 4) {

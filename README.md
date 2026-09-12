@@ -115,14 +115,14 @@ When BGM or SFX Theme is set to **`AUTO`** in the launcher:
 ## Requirements
 
 ### Build machine
-| Tool | Minimum version |
-|------|----------------|
+| Tool           | Minimum version                                                |
+|----------------|----------------------------------------------------------------|
 | Android Studio | Hedgehog (2023.1) or newer — **or** Android command-line tools |
-| Android SDK | API 26 (Android 8.0) or higher |
-| Android NDK | r25 or newer (tested with r28) |
-| CMake | 3.22.1 (installed via SDK Manager) |
-| JDK | 11 or newer |
-| Gradle | 8.x (provided via the wrapper) |
+| Android SDK    | API 26 (Android 8.0) or higher                                 |
+| Android NDK    | r25 or newer (tested with r28)                                 |
+| CMake          | 3.22.1 (installed via SDK Manager)                             |
+| JDK            | 11 or newer                                                    |
+| Gradle         | 8.x (provided via the wrapper)                                 |
 
 ### Target device
 - Android **8.0 (API 26)** or higher

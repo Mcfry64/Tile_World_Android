@@ -34,7 +34,7 @@ object MusicManager {
         }
     }
 
-    fun getVolume(): Float = volume
+
 
     fun setEnabled(enabled: Boolean) {
         isEnabled = enabled
@@ -55,7 +55,7 @@ object MusicManager {
         stopMusic()
     }
 
-    fun getActiveBgmTheme(): String = activeBgmTheme
+
 
     private fun getBgmDirectory(context: Context): File {
         val base = context.getExternalFilesDir(null)?.parent ?: context.filesDir.absolutePath
@@ -74,7 +74,7 @@ object MusicManager {
         if (isPlaying()) return
 
         val dir = getBgmDirectory(context)
-        val oggFiles = dir.listFiles()?.filter { it.isFile && it.extension.lowercase() == "ogg" }
+        val oggFiles = dir.listFiles()?.filter { it.isFile && (it.extension.lowercase() == "ogg") }
         if (oggFiles.isNullOrEmpty()) {
             Log.e(TAG, "No ogg files found in ${dir.absolutePath}")
             return
@@ -87,7 +87,7 @@ object MusicManager {
         if (!isEnabled) return
 
         val dir = getBgmDirectory(context)
-        val oggFiles = dir.listFiles()?.filter { it.isFile && it.extension.lowercase() == "ogg" }
+        val oggFiles = dir.listFiles()?.filter { it.isFile && (it.extension.lowercase() == "ogg") }
         if (oggFiles.isNullOrEmpty()) {
             Log.e(TAG, "No ogg files found in ${dir.absolutePath}")
             return
@@ -109,11 +109,11 @@ object MusicManager {
         } else {
             // Other ogg files: Choose random ogg file per level
             val sortedFiles = oggFiles.sortedBy { it.name.lowercase() }
-            val index = abs(levelNum * 31 + activeBgmTheme.hashCode()) % sortedFiles.size
+            val index = abs((levelNum * 31) + activeBgmTheme.hashCode()) % sortedFiles.size
             sortedFiles[index]
         }
 
-        if (currentTrackPath == targetFile.absolutePath && isPlaying()) {
+        if ((currentTrackPath == targetFile.absolutePath) && isPlaying()) {
             return
         }
 
@@ -135,7 +135,7 @@ object MusicManager {
                     AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .setUsage(AudioAttributes.USAGE_GAME)
-                        .build()
+                        .build(),
                 )
                 setDataSource(musicFile.absolutePath)
                 isLooping = true

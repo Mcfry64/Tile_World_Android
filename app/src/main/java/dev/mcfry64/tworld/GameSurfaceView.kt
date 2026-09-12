@@ -26,15 +26,22 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.content.Context.VIBRATOR_SERVICE
 import android.content.Context.VIBRATOR_MANAGER_SERVICE
+import android.graphics.Matrix
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
+import androidx.core.graphics.withTranslation
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.sqrt
+import kotlin.random.Random
 
+@Suppress("ViewConstructor")
 class GameSurfaceView(
     context: Context,
     private val isTouchNavEnabled: Boolean = false,
     private val swipeStyle: Int = 0,
     private val speedPercent: Int = 100,
     private val pixelPerfect: Boolean = false,
-    private val onFinish: () -> Unit
+    private val onFinish: () -> Unit,
 ) : SurfaceView(context), SurfaceHolder.Callback {
 
     private var gameThread: GameThread? = null
@@ -80,8 +87,8 @@ class GameSurfaceView(
         val text: String,
         val startTime: Long = System.currentTimeMillis(),
         val durationMs: Long = 900L,
-        val startYOffset: Float = (kotlin.random.Random.nextFloat() * 24f) - 12f,
-        val startXOffset: Float = (kotlin.random.Random.nextFloat() * 40f) - 20f
+        val startYOffset: Float = (Random.nextFloat() * 24f) - 12f,
+        val startXOffset: Float = (Random.nextFloat() * 40f) - 20f,
     )
 
     private val floatingSfxList = java.util.concurrent.CopyOnWriteArrayList<FloatingSfxText>()
@@ -199,17 +206,17 @@ class GameSurfaceView(
             val prefs = context.getSharedPreferences("tworld_prefs", Context.MODE_PRIVATE)
             val sfxAssistMode = prefs.getInt("sfx_assist_mode", 0)
             
-            if (sfxAssistMode > 0 && text.isNotBlank()) {
+            if ((sfxAssistMode > 0) && text.isNotBlank()) {
                 val cleanText = text.replace("\"", "").trim()
                 
                 if (cleanText.isNotEmpty()) {
                     // Trigger Haptic Vibration Pattern if AssistMode is 1 or 2
-                    if (sfxAssistMode == 1 || sfxAssistMode == 2) {
+                    if ((sfxAssistMode == 1) || (sfxAssistMode == 2)) {
                         playHapticFeedback(cleanText)
                     }
                     
                     // Show Subtitle Visuals in bottom text window if AssistMode is 2 or 3
-                    if (sfxAssistMode == 2 || sfxAssistMode == 3) {
+                    if ((sfxAssistMode == 2) || (sfxAssistMode == 3)) {
                         GameEngine.nativeShowMessage(cleanText)
                     }
                 }
@@ -220,7 +227,7 @@ class GameSurfaceView(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val bmpW = GameEngine.nativeGetScreenWidth()
         val bmpH = GameEngine.nativeGetScreenHeight()
-        if (bmpW <= 0 || bmpH <= 0) return super.onTouchEvent(event)
+        if ((bmpW <= 0) || (bmpH <= 0)) return super.onTouchEvent(event)
 
         if (isTouchNavEnabled) {
             val dWidth = if (activeDstWidth > 0) activeDstWidth else width
@@ -238,16 +245,16 @@ class GameSurfaceView(
                 MotionEvent.ACTION_DOWN -> {
                     touchStartX = event.x
                     touchStartY = event.y
-                    GameEngine.nativeSendTouch(bmpX, bmpY, true)
+                    GameEngine.nativeSendTouch(bmpX, bmpY, down = true)
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    GameEngine.nativeSendTouch(bmpX, bmpY, true)
+                    GameEngine.nativeSendTouch(bmpX, bmpY, down = true)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (event.actionMasked == MotionEvent.ACTION_UP) {
                         performClick()
                     }
-                    GameEngine.nativeSendTouch(bmpX, bmpY, false)
+                    GameEngine.nativeSendTouch(bmpX, bmpY, down = false)
                 }
             }
             return true
@@ -264,20 +271,20 @@ class GameSurfaceView(
                 if (swipeStyle < 0) return true
                 val dx = event.x - touchStartX
                 val dy = event.y - touchStartY
-                val dist = kotlin.math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                val dist = sqrt(((dx * dx) + (dy * dy)).toDouble()).toFloat()
 
                 when (swipeStyle) {
                     0 -> { // Fluid (Pivot)
                         val threshold = 30f * density
-                        if (dist > threshold && !isPaused) {
+                        if ((dist > threshold) && !isPaused) {
                             val dir = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
                                 if (dx > 0) GameEngine.TWK_RIGHT else GameEngine.TWK_LEFT
                             } else {
                                 if (dy > 0) GameEngine.TWK_DOWN else GameEngine.TWK_UP
                             }
                             if (dir != lastSwipeDir) {
-                                if (lastSwipeDir != -1) GameEngine.nativeSendKey(lastSwipeDir, false)
-                                GameEngine.nativeSendKey(dir, true)
+                                if (lastSwipeDir != -1) GameEngine.nativeSendKey(lastSwipeDir, down = false)
+                                GameEngine.nativeSendKey(dir, down = true)
                                 lastSwipeDir = dir
                             }
                             // Reset origin to current point for instant fluid turns
@@ -287,7 +294,7 @@ class GameSurfaceView(
                     }
                     1 -> { // Precise (Flick)
                         val threshold = 30f * density
-                        if (dist > threshold && lastSwipeDir == -1 && !isPaused) {
+                        if ((dist > threshold) && (lastSwipeDir == -1) && !isPaused) {
                             val dir = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
                                 if (dx > 0) GameEngine.TWK_RIGHT else GameEngine.TWK_LEFT
                             } else {
@@ -299,15 +306,15 @@ class GameSurfaceView(
                     }
                     else -> { // Classic
                         val threshold = 40f * density
-                        if (dist > threshold && !isPaused) {
+                        if ((dist > threshold) && !isPaused) {
                             val dir = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
                                 if (dx > 0) GameEngine.TWK_RIGHT else GameEngine.TWK_LEFT
                             } else {
                                 if (dy > 0) GameEngine.TWK_DOWN else GameEngine.TWK_UP
                             }
                             if (dir != lastSwipeDir) {
-                                if (lastSwipeDir != -1) GameEngine.nativeSendKey(lastSwipeDir, false)
-                                GameEngine.nativeSendKey(dir, true)
+                                if (lastSwipeDir != -1) GameEngine.nativeSendKey(lastSwipeDir, down = false)
+                                GameEngine.nativeSendKey(dir, down = true)
                                 lastSwipeDir = dir
                             }
                         }
@@ -319,15 +326,15 @@ class GameSurfaceView(
                     performClick()
                     val dx = event.x - touchStartX
                     val dy = event.y - touchStartY
-                    val dist = kotlin.math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                    val dist = sqrt(((dx * dx) + (dy * dy)).toDouble()).toFloat()
                     val tapThreshold = 20f * resources.displayMetrics.density
-                    if (lastSwipeDir == -1 && dist < tapThreshold) {
+                    if ((lastSwipeDir == -1) && (dist < tapThreshold)) {
                         Log.d(TAG, "General tap detected - sending RETURN to continue")
                         GameEngine.nativeTypeChar(GameEngine.TWK_RETURN)
                     }
                 }
-                if (lastSwipeDir != -1 && swipeStyle != 1) {
-                    GameEngine.nativeSendKey(lastSwipeDir, false)
+                if ((lastSwipeDir != -1) && (swipeStyle != 1)) {
+                    GameEngine.nativeSendKey(lastSwipeDir, down = false)
                 }
                 lastSwipeDir = -1
             }
@@ -344,7 +351,7 @@ class GameSurfaceView(
 
     override fun surfaceCreated(h: SurfaceHolder) {
         val t = gameThread
-        if (t == null || !t.isAlive) {
+        if ((t == null) || !t.isAlive) {
             gameThread = GameThread(h).also {
                 it.isPausedByLifecycle = false
                 it.start()
@@ -377,7 +384,7 @@ class GameSurfaceView(
 
     fun resume() {
         val t = gameThread
-        if ((t == null || !t.isAlive) && holder.surface.isValid) {
+        if (((t == null) || !t.isAlive) && holder.surface.isValid) {
             gameThread = GameThread(holder).also {
                 it.isPausedByLifecycle = false
                 it.start()
@@ -399,8 +406,8 @@ class GameSurfaceView(
 
     /** Called from Activity.dispatchGenericMotionEvent (gamepad axes). */
     fun handleMotion(event: MotionEvent): Boolean {
-        if (event.source and InputDevice.SOURCE_JOYSTICK == 0 &&
-            event.source and InputDevice.SOURCE_GAMEPAD  == 0) return false
+        if (((event.source and InputDevice.SOURCE_JOYSTICK) == 0) &&
+            ((event.source and InputDevice.SOURCE_GAMEPAD) == 0)) return false
 
         val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
         val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
@@ -420,10 +427,10 @@ class GameSurfaceView(
         val changed = prevBits xor newBits
         keyBits.set(newBits)
 
-        if (changed and BIT_UP    != 0) GameEngine.nativeSendKey(GameEngine.TWK_UP,    newBits and BIT_UP    != 0)
-        if (changed and BIT_DOWN  != 0) GameEngine.nativeSendKey(GameEngine.TWK_DOWN,  newBits and BIT_DOWN  != 0)
-        if (changed and BIT_LEFT  != 0) GameEngine.nativeSendKey(GameEngine.TWK_LEFT,  newBits and BIT_LEFT  != 0)
-        if (changed and BIT_RIGHT != 0) GameEngine.nativeSendKey(GameEngine.TWK_RIGHT, newBits and BIT_RIGHT != 0)
+        if ((changed and BIT_UP) != 0) GameEngine.nativeSendKey(GameEngine.TWK_UP, (newBits and BIT_UP) != 0)
+        if ((changed and BIT_DOWN) != 0) GameEngine.nativeSendKey(GameEngine.TWK_DOWN, (newBits and BIT_DOWN) != 0)
+        if ((changed and BIT_LEFT) != 0) GameEngine.nativeSendKey(GameEngine.TWK_LEFT, (newBits and BIT_LEFT) != 0)
+        if ((changed and BIT_RIGHT) != 0) GameEngine.nativeSendKey(GameEngine.TWK_RIGHT, (newBits and BIT_RIGHT) != 0)
 
         return changed != 0
     }
@@ -507,7 +514,7 @@ class GameSurfaceView(
         override fun run() {
             // Wait up to 1 second for native engine thread to start
             var startupWait = 0
-            while (running && !GameEngine.nativeIsRunning() && startupWait < 50) {
+            while (running && (!GameEngine.nativeIsRunning()) && (startupWait < 50)) {
                 try { sleep(20) } catch (_: Exception) {}
                 startupWait++
             }
@@ -531,10 +538,10 @@ class GameSurfaceView(
                     // Re-trigger active directional keys continuously (matches touchscreen behavior)
                     val liveBits = keyBits.get()
                     if (liveBits != 0) {
-                        if (liveBits and BIT_UP != 0) GameEngine.nativeSendKey(GameEngine.TWK_UP, true)
-                        if (liveBits and BIT_DOWN != 0) GameEngine.nativeSendKey(GameEngine.TWK_DOWN, true)
-                        if (liveBits and BIT_LEFT != 0) GameEngine.nativeSendKey(GameEngine.TWK_LEFT, true)
-                        if (liveBits and BIT_RIGHT != 0) GameEngine.nativeSendKey(GameEngine.TWK_RIGHT, true)
+                        if (liveBits and BIT_UP != 0) GameEngine.nativeSendKey(GameEngine.TWK_UP, down = true)
+                        if (liveBits and BIT_DOWN != 0) GameEngine.nativeSendKey(GameEngine.TWK_DOWN, down = true)
+                        if (liveBits and BIT_LEFT != 0) GameEngine.nativeSendKey(GameEngine.TWK_LEFT, down = true)
+                        if (liveBits and BIT_RIGHT != 0) GameEngine.nativeSendKey(GameEngine.TWK_RIGHT, down = true)
                     }
                 }
 
@@ -556,7 +563,7 @@ class GameSurfaceView(
                 // Ensure bitmap matches game resolution
                 if (gameBitmap == null || gameBitmap!!.width != w || gameBitmap!!.height != h) {
                     gameBitmap?.recycle()
-                    gameBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                    gameBitmap = createBitmap(w, h, Bitmap.Config.ARGB_8888)
                 }
                 val bmp = gameBitmap ?: continue
 
@@ -605,7 +612,7 @@ class GameSurfaceView(
                     if (rawBgBmp != null && totalScale != lastBgScale) {
                         lastBgScale = totalScale
                         val scaledBmp = if (totalScale > 1) {
-                            Bitmap.createScaledBitmap(rawBgBmp!!, rawBgBmp!!.width * totalScale, rawBgBmp!!.height * totalScale, false)
+                            rawBgBmp!!.scale(rawBgBmp!!.width * totalScale, rawBgBmp!!.height * totalScale, filter = false)
                         } else {
                             rawBgBmp!!
                         }
@@ -617,9 +624,9 @@ class GameSurfaceView(
                         val shiftX = 0f // Zijwaards
                         val shiftY = 40f * scaleFactor  // Opwaards / neerwaards geschaald met zoomfactor
 
-                        bgShader?.setLocalMatrix(android.graphics.Matrix().apply {
-                            setTranslate(dstLeft.toFloat() + shiftX, dstTop.toFloat() + shiftY)
-                        })
+                        val bgMatrix = Matrix()
+                        bgMatrix.setTranslate(dstLeft.toFloat() + shiftX, dstTop.toFloat() + shiftY)
+                        bgShader?.setLocalMatrix(bgMatrix)
 
                         if (pixelPerfect) {
                             if (dstLeft > 0) {
@@ -663,7 +670,7 @@ class GameSurfaceView(
 
                         if (sharpBitmap == null || sharpBitmap!!.width != interW || sharpBitmap!!.height != interH) {
                             sharpBitmap?.recycle()
-                            sharpBitmap = Bitmap.createBitmap(interW, interH, Bitmap.Config.ARGB_8888)
+                            sharpBitmap = createBitmap(interW, interH, Bitmap.Config.ARGB_8888)
                             sharpCanvas = Canvas(sharpBitmap!!)
                         }
 
@@ -681,27 +688,26 @@ class GameSurfaceView(
 
                     // Render Retro Blocky Pause Overlay over playfield when game is paused
                     if (isPausedInC) {
-                        canvas.save()
-                        canvas.translate(dstLeft.toFloat(), dstTop.toFloat())
-                        val mapSize = dstWidth.toFloat()
-                        canvas.drawRect(0f, 0f, mapSize, mapSize, overlayPaint)
+                        canvas.withTranslation(dstLeft.toFloat(), dstTop.toFloat()) {
+                            val mapSize = dstWidth.toFloat()
+                            drawRect(0f, 0f, mapSize, mapSize, overlayPaint)
 
-                        val centerX = mapSize / 2f
-                        val centerY = mapSize / 2f
-                        val iconW = mapSize * 0.18f
-                        val iconH = mapSize * 0.24f
-                        val barW = iconW * 0.35f
-                        val gap = iconW * 0.30f
+                            val centerX = mapSize / 2f
+                            val centerY = mapSize / 2f
+                            val iconW = mapSize * 0.18f
+                            val iconH = mapSize * 0.24f
+                            val barW = iconW * 0.35f
+                            val gap = iconW * 0.30f
 
-                        val leftBar = RectF(centerX - barW - gap / 2f, centerY - iconH / 2f, centerX - gap / 2f, centerY + iconH / 2f)
-                        val rightBar = RectF(centerX + gap / 2f, centerY - iconH / 2f, centerX + gap / 2f + barW, centerY + iconH / 2f)
+                            val leftBar = RectF(centerX - barW - gap / 2f, centerY - iconH / 2f, centerX - gap / 2f, centerY + iconH / 2f)
+                            val rightBar = RectF(centerX + gap / 2f, centerY - iconH / 2f, centerX + gap / 2f + barW, centerY + iconH / 2f)
 
-                        canvas.drawRect(leftBar, pauseIconPaint)
-                        canvas.drawRect(rightBar, pauseIconPaint)
+                            drawRect(leftBar, pauseIconPaint)
+                            drawRect(rightBar, pauseIconPaint)
 
-                        canvas.drawRect(leftBar, pauseShadowPaint)
-                        canvas.drawRect(rightBar, pauseShadowPaint)
-                        canvas.restore()
+                            drawRect(leftBar, pauseShadowPaint)
+                            drawRect(rightBar, pauseShadowPaint)
+                        }
                     }
 
                     // Render Floating Retro SFX Text Overlay over playfield

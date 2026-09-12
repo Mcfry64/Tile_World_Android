@@ -1,6 +1,15 @@
+@file:Suppress("SetTextI18n")
+
 package dev.mcfry64.tworld
 
-import android.app.Activity
+import androidx.core.content.edit
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.scale
+import androidx.core.graphics.toColorInt
+import androidx.core.view.isVisible
+import android.annotation.SuppressLint
+import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import android.media.AudioAttributes
 import android.media.SoundPool
 import android.os.Bundle
@@ -22,17 +31,16 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ListView
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.ProgressBar
 import android.widget.RelativeLayout
 import android.app.AlertDialog
+import android.graphics.drawable.LayerDrawable
 import java.io.File
 
-class GameActivity : Activity() {
+class GameActivity : ComponentActivity() {
 
     private lateinit var gameView: GameSurfaceView
     private lateinit var setsSpinner: Spinner
@@ -58,7 +66,7 @@ class GameActivity : Activity() {
         "Level Pack 2 (MS)" to "CCLP2.dac",
         "Level Pack 3 (MS)" to "CCLP3-MS.dac",
         "Level Pack 4 (MS)" to "CCLP4-MS.dac",
-        "Level Pack 5 (MS)" to "CCLP5-MS.dac"
+        "Level Pack 5 (MS)" to "CCLP5-MS.dac",
     )
     private val lynxSets = linkedMapOf(
         "Chip's Challenge (Lynx)" to "cc-fixlynx.dac",
@@ -67,19 +75,33 @@ class GameActivity : Activity() {
         "Level Pack 2 (Lynx)" to "CCLXP2.dac",
         "Level Pack 3 (Lynx)" to "CCLP3-Lynx.dac",
         "Level Pack 4 (Lynx)" to "CCLP4-Lynx.dac",
-        "Level Pack 5 (Lynx)" to "CCLP5-Lynx.dac"
+        "Level Pack 5 (Lynx)" to "CCLP5-Lynx.dac",
     )
 
     private fun getCurrentMap(): Map<String, String> {
         val base = getExternalFilesDir(null)?.parent ?: filesDir.absolutePath
         val chipsFile = File("$base/data", "CHIPS.dat")
-        val hasChips = chipsFile.exists() && chipsFile.length() > 0
-        val baseMap = if (isLynx) lynxSets else msSets
-        return if (hasChips) {
+        val hasChips = (chipsFile.exists() && (chipsFile.length() > 0))
+
+        val baseMap = LinkedHashMap(if (isLynx) lynxSets else msSets)
+        val filteredMap = if (hasChips) {
             baseMap
         } else {
-            baseMap.filterKeys { it != "Chip's Challenge (MS)" && it != "Chip's Challenge (Lynx)" }
+            LinkedHashMap(baseMap.filterKeys { (it != "Chip's Challenge (MS)") && (it != "Chip's Challenge (Lynx)") })
         }
+
+        // Scan custom .dac files in sets/
+        val setsDir = File("$base/sets")
+        if (setsDir.exists() && setsDir.isDirectory) {
+            setsDir.listFiles { _, name -> name.lowercase().endsWith(".dac") }?.forEach { dacFile ->
+                val dacName = dacFile.name
+                if (!filteredMap.containsValue(dacName)) {
+                    val friendlyName = dacFile.nameWithoutExtension
+                    filteredMap[friendlyName] = dacName
+                }
+            }
+        }
+        return filteredMap
     }
 
     private var soundPool: SoundPool? = null
@@ -102,29 +124,22 @@ class GameActivity : Activity() {
             window.attributes = attribs
         }
 
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
-            onBackInvokedDispatcher.registerOnBackInvokedCallback(
-                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT
-            ) {
-                handleBackPress()
-            }
+        onBackPressedDispatcher.addCallback(this) {
+            handleBackPress()
         }
-        
+
         showLauncher()
     }
 
     private fun handleBackPress() {
         if (isGameRunning) {
-            GameEngine.nativeSendKey(GameEngine.TWK_ESCAPE, true)
-            GameEngine.nativeSendKey(GameEngine.TWK_ESCAPE, false)
+            if (::gameView.isInitialized && !GameEngine.nativeIsGamePaused()) {
+                GameEngine.nativeTypeChar(GameEngine.TWC_PAUSEGAME)
+            }
+            moveTaskToBack(true)
         } else {
-            finish()
+            moveTaskToBack(true)
         }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        handleBackPress()
     }
 
     private fun showLauncher() {
@@ -148,9 +163,9 @@ class GameActivity : Activity() {
                 val gameScale = resources.displayMetrics.widthPixels.toFloat() / (9 * 32f)
                 val scaledW = maxOf(1, (bmp.width * gameScale).toInt())
                 val scaledH = maxOf(1, (bmp.height * gameScale).toInt())
-                val scaledBmp = android.graphics.Bitmap.createScaledBitmap(bmp, scaledW, scaledH, false)
+                val scaledBmp = bmp.scale(scaledW, scaledH)
 
-                val tiledDrawable = android.graphics.drawable.BitmapDrawable(resources, scaledBmp).apply {
+                val tiledDrawable = scaledBmp.toDrawable(resources).apply {
                     setTileModeXY(android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT)
                 }
                 rootLauncher?.background = tiledDrawable
@@ -174,7 +189,7 @@ class GameActivity : Activity() {
         
         val prefs = getSharedPreferences("tworld_prefs", MODE_PRIVATE)
 
-        val passwordButton = findViewById<android.widget.ImageButton>(R.id.btn_password)
+        val passwordButton = findViewById<ImageButton>(R.id.btn_password)
         passwordButton.setOnClickListener {
             showPasswordDialog(data, sets)
         }
@@ -224,7 +239,7 @@ class GameActivity : Activity() {
             val desc = getBgmThemeDescription(bgmThemeName)
 
             audioMarqueeText?.ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
-            audioMarqueeText?.gravity = android.view.Gravity.CENTER_VERTICAL
+            audioMarqueeText?.gravity = Gravity.CENTER_VERTICAL
             audioMarqueeText?.text = desc
             audioMarqueeText?.isSelected = true
         }
@@ -233,7 +248,7 @@ class GameActivity : Activity() {
             revertMarqueeRunnable?.let { marqueeHandler.removeCallbacks(it) }
             audioMarqueeText?.ellipsize = null
             audioMarqueeText?.isSelected = false
-            audioMarqueeText?.gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
+            audioMarqueeText?.gravity = Gravity.CENTER_VERTICAL or Gravity.START
             audioMarqueeText?.text = text
 
             val runnable = Runnable { updateAudioMarquee() }
@@ -248,32 +263,33 @@ class GameActivity : Activity() {
         bgmSeekBar.progress = lastBgmVol
         updateSeekBarTrackColor(bgmSeekBar, lastBgmVol)
         if (lastBgmVol < 5) {
-            MusicManager.setEnabled(false)
+            MusicManager.setEnabled(enabled = false)
             MusicManager.setVolume(0.0f)
         } else {
-            MusicManager.setEnabled(true)
+            MusicManager.setEnabled(enabled = true)
             MusicManager.setVolume(lastBgmVol / 100.0f)
         }
 
         sfxSeekBar.progress = lastSfxVol
         updateSeekBarTrackColor(sfxSeekBar, lastSfxVol)
         if (lastSfxVol < 5) {
-            GameEngine.nativeSetSfxEnabled(false)
+            GameEngine.nativeSetSfxEnabled(enabled = false)
             GameEngine.nativeSetSfxVolume(0)
         } else {
-            GameEngine.nativeSetSfxEnabled(true)
+            GameEngine.nativeSetSfxEnabled(enabled = true)
             GameEngine.nativeSetSfxVolume((lastSfxVol / 10).coerceIn(0, 10))
         }
 
-        bgmSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        bgmSeekBar.setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateSeekBarTrackColor(seekBar, progress)
-                prefs.edit().putInt("bgm_volume", progress).apply()
+                prefs.edit { putInt("bgm_volume", progress) }
                 if (progress < 5) {
-                    MusicManager.setEnabled(false)
+                    MusicManager.setEnabled(enabled = false)
                     MusicManager.setVolume(0.0f)
                 } else {
-                    MusicManager.setEnabled(true)
+                    MusicManager.setEnabled(enabled = true)
                     MusicManager.setVolume(progress / 100.0f)
                     if (fromUser) {
                         MusicManager.playPreviewTrack(this@GameActivity)
@@ -299,21 +315,23 @@ class GameActivity : Activity() {
                 revertMarqueeRunnable = runnable
                 marqueeHandler.postDelayed(runnable, 1500)
             }
-        })
+        },
+        )
 
-        sfxSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        sfxSeekBar.setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateSeekBarTrackColor(seekBar, progress)
-                prefs.edit().putInt("sfx_volume", progress).apply()
+                prefs.edit { putInt("sfx_volume", progress) }
                 if (progress < 5) {
-                    GameEngine.nativeSetSfxEnabled(false)
+                    GameEngine.nativeSetSfxEnabled(enabled = false)
                     GameEngine.nativeSetSfxVolume(0)
                 } else {
-                    GameEngine.nativeSetSfxEnabled(true)
+                    GameEngine.nativeSetSfxEnabled(enabled = true)
                     GameEngine.nativeSetSfxVolume((progress / 10).coerceIn(0, 10))
-                    if (fromUser && tingSoundId != 0) {
+                    if ((fromUser && (tingSoundId != 0))) {
                         val now = System.currentTimeMillis()
-                        if (now - lastSfxPlayTime > 120) {
+                        if ((now - lastSfxPlayTime) > 120) {
                             lastSfxPlayTime = now
                             val vol = progress / 100.0f
                             if (sfxStreamId != 0) {
@@ -330,7 +348,7 @@ class GameActivity : Activity() {
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
                 val progress = seekBar?.progress ?: 100
-                if (progress >= 5 && tingSoundId != 0) {
+                if ((progress >= 5) && (tingSoundId != 0)) {
                     val vol = (seekBar?.progress ?: 100) / 100.0f
                     if (sfxStreamId != 0) {
                         soundPool?.stop(sfxStreamId)
@@ -350,7 +368,8 @@ class GameActivity : Activity() {
                 revertMarqueeRunnable = runnable
                 marqueeHandler.postDelayed(runnable, 1500)
             }
-        })
+        },
+        )
 
         // BGM Theme Dropdown Initialization
         val availableBgmThemes = GameEngine.getAvailableBgmThemes(this)
@@ -367,7 +386,7 @@ class GameActivity : Activity() {
         bgmThemeSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                 val selectedTheme = availableBgmThemes[pos.coerceIn(0, availableBgmThemes.size - 1)]
-                prefs.edit().putString("bgm_theme", selectedTheme).apply()
+                prefs.edit { putString("bgm_theme", selectedTheme) }
                 MusicManager.setActiveBgmTheme(selectedTheme)
                 updateAudioMarquee()
             }
@@ -390,7 +409,7 @@ class GameActivity : Activity() {
         sfxThemeSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                 val selectedTheme = availableThemes[pos.coerceIn(0, availableThemes.size - 1)]
-                prefs.edit().putString("sfx_theme", selectedTheme).apply()
+                prefs.edit { putString("sfx_theme", selectedTheme) }
                 GameEngine.nativeSetSfxTheme(selectedTheme)
                 updateAudioMarquee()
             }
@@ -398,8 +417,8 @@ class GameActivity : Activity() {
         }
         
         val btnSfxToggle = findViewById<View>(R.id.btn_sfx_toggle)
-        val tvSfxLabel = findViewById<android.widget.TextView>(R.id.tv_sfx_label)
-        val ivSfxZigzags = findViewById<android.widget.ImageView>(R.id.iv_sfx_zigzags)
+        val tvSfxLabel = findViewById<TextView>(R.id.tv_sfx_label)
+        val ivSfxZigzags = findViewById<ImageView>(R.id.iv_sfx_zigzags)
         
         // 0 = Normal SFX, 1 = Haptic, 2 = Haptic + Subs, 3 = Subs Only
         var sfxAssistMode = prefs.getInt("sfx_assist_mode", 0) 
@@ -407,27 +426,27 @@ class GameActivity : Activity() {
         // Migrate old boolean to int mode if needed
         if (prefs.contains("haptic_sfx")) {
             if (prefs.getBoolean("haptic_sfx", false)) sfxAssistMode = 1
-            prefs.edit().remove("haptic_sfx").apply()
+            prefs.edit { remove("haptic_sfx") }
         }
         
         fun updateSfxButtonUI() {
             when (sfxAssistMode) {
                 0 -> {
-                    tvSfxLabel?.setTextColor(android.graphics.Color.parseColor("#888888"))
+                    tvSfxLabel?.setTextColor("#888888".toColorInt())
                     ivSfxZigzags?.visibility = View.GONE
                 }
                 1 -> {
-                    tvSfxLabel?.setTextColor(android.graphics.Color.parseColor("#00FF00"))
+                    tvSfxLabel?.setTextColor("#00FF00".toColorInt())
                     ivSfxZigzags?.setImageResource(R.drawable.ic_sfx_haptic_only)
                     ivSfxZigzags?.visibility = View.VISIBLE
                 }
                 2 -> {
-                    tvSfxLabel?.setTextColor(android.graphics.Color.parseColor("#00FF00"))
+                    tvSfxLabel?.setTextColor("#00FF00".toColorInt())
                     ivSfxZigzags?.setImageResource(R.drawable.ic_sfx_haptic_subs)
                     ivSfxZigzags?.visibility = View.VISIBLE
                 }
                 3 -> {
-                    tvSfxLabel?.setTextColor(android.graphics.Color.parseColor("#00FF00"))
+                    tvSfxLabel?.setTextColor("#00FF00".toColorInt())
                     ivSfxZigzags?.setImageResource(R.drawable.ic_sfx_subs_only)
                     ivSfxZigzags?.visibility = View.VISIBLE
                 }
@@ -437,7 +456,7 @@ class GameActivity : Activity() {
 
         btnSfxToggle?.setOnClickListener {
             sfxAssistMode = (sfxAssistMode + 1) % 4
-            prefs.edit().putInt("sfx_assist_mode", sfxAssistMode).apply()
+            prefs.edit { putInt("sfx_assist_mode", sfxAssistMode) }
             updateSfxButtonUI()
             
             when (sfxAssistMode) {
@@ -456,16 +475,16 @@ class GameActivity : Activity() {
 
         fun updatePixelPerfectButtonUI() {
             if (isPixelPerfect) {
-                tvPixelPerfectLabel?.setTextColor(android.graphics.Color.parseColor("#00FF00"))
+                tvPixelPerfectLabel?.setTextColor("#00FF00".toColorInt())
             } else {
-                tvPixelPerfectLabel?.setTextColor(android.graphics.Color.parseColor("#888888"))
+                tvPixelPerfectLabel?.setTextColor("#888888".toColorInt())
             }
         }
         updatePixelPerfectButtonUI()
 
         btnPixelPerfect?.setOnClickListener {
             isPixelPerfect = !isPixelPerfect
-            prefs.edit().putBoolean("pixel_perfect_enabled", isPixelPerfect).apply()
+            prefs.edit { putBoolean("pixel_perfect_enabled", isPixelPerfect) }
             updatePixelPerfectButtonUI()
             if (isPixelPerfect) {
                 showStaticVolumeFeedback("[ Pixel-Perfect Integer Scaling Enabled ]", 1500)
@@ -489,7 +508,7 @@ class GameActivity : Activity() {
 
         onscreenControlsSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                prefs.edit().putInt("onscreen_controls_style", pos).apply()
+                prefs.edit { putInt("onscreen_controls_style", pos) }
             }
             override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
         }
@@ -500,7 +519,7 @@ class GameActivity : Activity() {
             1 to "Tap on screen relative to Chip to move.",
             2 to "Standard continuous swipe controls.",
             3 to "Single discrete step per swipe flick.",
-            4 to "Smooth continuous turns without lifting finger."
+            4 to "Smooth continuous turns without lifting finger.",
         )
         val touchAdapter = createTouchControlAdapter(touchOptions) { isLynx }
         swipeStyleSpinner.adapter = touchAdapter
@@ -527,7 +546,7 @@ class GameActivity : Activity() {
 
         swipeStyleSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                if (isLynx && pos == 1) {
+                if (isLynx && (pos == 1)) {
                     autoJumpedFromTouchNavToNone = true
                     swipeStyleSpinner.setSelection(0)
                     @Suppress("SetTextI18n")
@@ -544,21 +563,11 @@ class GameActivity : Activity() {
                 }
 
                 when (pos) {
-                    0 -> {
-                        prefs.edit().putBoolean("touch_nav_enabled", false).putInt("swipe_style", -1).apply()
-                    }
-                    1 -> {
-                        prefs.edit().putBoolean("touch_nav_enabled", true).putInt("swipe_style", 2).apply()
-                    }
-                    2 -> {
-                        prefs.edit().putBoolean("touch_nav_enabled", false).putInt("swipe_style", 2).apply()
-                    }
-                    3 -> {
-                        prefs.edit().putBoolean("touch_nav_enabled", false).putInt("swipe_style", 1).apply()
-                    }
-                    4 -> {
-                        prefs.edit().putBoolean("touch_nav_enabled", false).putInt("swipe_style", 0).apply()
-                    }
+                    0 -> prefs.edit { putBoolean("touch_nav_enabled", false).putInt("swipe_style", -1) }
+                    1 -> prefs.edit { putBoolean("touch_nav_enabled", true).putInt("swipe_style", 2) }
+                    2 -> prefs.edit { putBoolean("touch_nav_enabled", false).putInt("swipe_style", 2) }
+                    3 -> prefs.edit { putBoolean("touch_nav_enabled", false).putInt("swipe_style", 1) }
+                    4 -> prefs.edit { putBoolean("touch_nav_enabled", false).putInt("swipe_style", 0) }
                 }
             }
             override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
@@ -579,7 +588,7 @@ class GameActivity : Activity() {
             "225% (Supersonic)",
             "250% (Speed of light)",
             "275% (Warp speed)",
-            "300% (Ludicrous speed)"
+            "300% (Ludicrous speed)",
         )
         val speedAdapter = createCustomFontAdapter(speedOptions)
         gameSpeedSpinner.adapter = speedAdapter
@@ -592,7 +601,7 @@ class GameActivity : Activity() {
 
         gameSpeedSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                prefs.edit().putInt("game_speed_index", pos).apply()
+                prefs.edit { putInt("game_speed_index", pos) }
             }
             override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
         }
@@ -602,20 +611,20 @@ class GameActivity : Activity() {
         val holdHandler = android.os.Handler(android.os.Looper.getMainLooper())
         val holdRunnable = Runnable {
             isLongHoldTriggered = true
-            val currentlyVisible = gameSpeedContainer.visibility == View.VISIBLE
+            val currentlyVisible = gameSpeedContainer.isVisible
             if (currentlyVisible) {
                 gameSpeedContainer.visibility = View.GONE
                 gameSpeedSpinner.setSelection(3) // Reset to 100%
-                prefs.edit().putInt("game_speed_index", 3).putBoolean("game_speed_visible", false).apply()
+                prefs.edit { putInt("game_speed_index", 3).putBoolean("game_speed_visible", false) }
                 android.widget.Toast.makeText(this, "Game Speed hidden & reset to 100%", android.widget.Toast.LENGTH_SHORT).show()
             } else {
                 gameSpeedContainer.visibility = View.VISIBLE
-                prefs.edit().putBoolean("game_speed_visible", true).apply()
+                prefs.edit { putBoolean("game_speed_visible", true) }
                 android.widget.Toast.makeText(this, "Game Speed options unlocked!", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
 
-        @android.annotation.SuppressLint("ClickableViewAccessibility")
+        @SuppressLint("ClickableViewAccessibility")
         startButton.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -640,16 +649,6 @@ class GameActivity : Activity() {
             true
         }
 
-        fun getTilesets(dirName: String): List<String> {
-            val list = mutableListOf("Tile World")
-            val dir = File(res, dirName)
-            if (dir.exists()) {
-                val files = dir.listFiles { _, name -> name.lowercase().endsWith(".bmp") }
-                files?.map { it.nameWithoutExtension }?.sorted()?.let { list.addAll(it) }
-            }
-            return list
-        }
-
         val msTiles = getTilesets("mstiles")
         val lynxTiles = getTilesets("lynxtiles")
 
@@ -659,35 +658,19 @@ class GameActivity : Activity() {
         val lynxTilesAdapter = createCustomFontAdapter(lynxTiles)
         lynxTilesSpinner.adapter = lynxTilesAdapter
 
-        val tilesetDescText = findViewById<TextView>(R.id.text_tileset_desc)
-
-        fun updateTilesetDesc() {
-            val activeSpinner = if (isLynx) lynxTilesSpinner else msTilesSpinner
-            val selectedName = activeSpinner.selectedItem?.toString() ?: ""
-            if (selectedName.contains("#")) {
-                tilesetDescText?.visibility = View.VISIBLE
-                @Suppress("SetTextI18n")
-                tilesetDescText?.text = "Minimal Animations [#]"
-            } else {
-                tilesetDescText?.visibility = View.GONE
-            }
-        }
-
         // Restore tileset selections
         msTilesSpinner.setSelection(prefs.getInt("last_tileset_ms", 0).coerceAtMost(msTiles.size - 1))
         lynxTilesSpinner.setSelection(prefs.getInt("last_tileset_lynx", 0).coerceAtMost(lynxTiles.size - 1))
 
         msTilesSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                prefs.edit().putInt("last_tileset_ms", pos).apply()
-                updateTilesetDesc()
+                prefs.edit { putInt("last_tileset_ms", pos) }
             }
             override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
         }
         lynxTilesSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                prefs.edit().putInt("last_tileset_lynx", pos).apply()
-                updateTilesetDesc()
+                prefs.edit { putInt("last_tileset_lynx", pos) }
             }
             override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
         }
@@ -700,7 +683,6 @@ class GameActivity : Activity() {
             // Update tileset spinner visibility
             msTilesSpinner.visibility = if (isLynx) View.GONE else View.VISIBLE
             lynxTilesSpinner.visibility = if (isLynx) View.VISIBLE else View.GONE
-            updateTilesetDesc()
 
             val adapter = createCustomFontAdapter(friendlyNames)
             setsSpinner.adapter = adapter
@@ -713,8 +695,10 @@ class GameActivity : Activity() {
                 override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     val fileName = setFiles[pos]
                     Log.d(TAG, "Selected set: $fileName")
-                    prefs.edit().putString(if (isLynx) "last_set_lynx" else "last_set_ms", fileName).apply()
-                    prefs.edit().putString("last_set", fileName).apply()
+                    prefs.edit {
+                        putString(if (isLynx) "last_set_lynx" else "last_set_ms", fileName)
+                        putString("last_set", fileName)
+                    }
                     updateLevelList(fileName, data, sets, save)
                 }
                 override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
@@ -722,23 +706,24 @@ class GameActivity : Activity() {
         }
 
         val btnRulesetToggle = findViewById<View>(R.id.btn_ruleset_toggle)
-        val tvRulesetLabel = findViewById<TextView>(R.id.tv_ruleset_label)
+        val tvRulesetLynx = findViewById<TextView>(R.id.tv_ruleset_lynx)
+        val tvRulesetMs = findViewById<TextView>(R.id.tv_ruleset_ms)
         isLynx = prefs.getBoolean("lynx_filter", false)
 
         fun updateRulesetButtonUI() {
             if (isLynx) {
-                tvRulesetLabel?.text = "LYNX"
-                tvRulesetLabel?.setTextColor(android.graphics.Color.parseColor("#00FF00"))
+                tvRulesetLynx?.setTextColor("#00FF00".toColorInt())
+                tvRulesetMs?.setTextColor("#888888".toColorInt())
             } else {
-                tvRulesetLabel?.text = "MS"
-                tvRulesetLabel?.setTextColor(android.graphics.Color.parseColor("#00FF00"))
+                tvRulesetLynx?.setTextColor("#888888".toColorInt())
+                tvRulesetMs?.setTextColor("#00FF00".toColorInt())
             }
         }
         updateRulesetButtonUI()
 
         btnRulesetToggle?.setOnClickListener {
             isLynx = !isLynx
-            prefs.edit().putBoolean("lynx_filter", isLynx).apply()
+            prefs.edit { putBoolean("lynx_filter", isLynx) }
             updateRulesetButtonUI()
             touchAdapter.notifyDataSetChanged()
             if (isLynx) {
@@ -766,15 +751,12 @@ class GameActivity : Activity() {
             val currentMap = getCurrentMap()
             val setFiles = currentMap.values.toList()
             val selectedIdx = setsSpinner.selectedItemPosition
-            if (selectedIdx >= 0 && selectedIdx < setFiles.size) {
+            if ((selectedIdx >= 0) && (selectedIdx < setFiles.size)) {
                 val selectedFile = setFiles[selectedIdx]
                 
                 // Get selected tileset
-                val selectedTilesetName = (if (isLynx) {
-                    lynxTilesSpinner.selectedItem
-                } else {
-                    msTilesSpinner.selectedItem
-                }) as? String ?: "Tile World"
+                val spinnerItem = if (isLynx) lynxTilesSpinner.selectedItem else msTilesSpinner.selectedItem
+                val selectedTilesetName = (spinnerItem as? String) ?: "Tile World"
 
                 val selectedTileset = when (selectedTilesetName) {
                     "Tile World" -> if (isLynx) "atiles.bmp" else "tiles.bmp"
@@ -789,7 +771,7 @@ class GameActivity : Activity() {
                 val bgmIsOn = bgmVol >= 5
                 val sfxIsOn = sfxVol >= 5
 
-                val isTouchNavSelected = swipeStyleSpinner.selectedItemPosition == 1 && !isLynx
+                val isTouchNavSelected = (swipeStyleSpinner.selectedItemPosition == 1) && !isLynx
                 val selectedSwipeStyle = when (swipeStyleSpinner.selectedItemPosition) {
                     0 -> -1
                     1 -> 2
@@ -800,14 +782,14 @@ class GameActivity : Activity() {
                 }
 
                 // Save settings
-                prefs.edit()
-                    .putBoolean("bgm_enabled", bgmIsOn)
-                    .putInt("bgm_volume", bgmVol)
-                    .putBoolean("sfx_enabled", sfxIsOn)
-                    .putInt("sfx_volume", sfxVol)
-                    .putBoolean("touch_nav_enabled", isTouchNavSelected)
-                    .putInt("swipe_style", selectedSwipeStyle)
-                    .apply()
+                prefs.edit {
+                    putBoolean("bgm_enabled", bgmIsOn)
+                    putInt("bgm_volume", bgmVol)
+                    putBoolean("sfx_enabled", sfxIsOn)
+                    putInt("sfx_volume", sfxVol)
+                    putBoolean("touch_nav_enabled", isTouchNavSelected)
+                    putInt("swipe_style", selectedSwipeStyle)
+                }
 
                 Log.d(TAG, "Starting game: set=$selectedFile level=$levelNum tileset=$selectedTileset")
                 
@@ -844,7 +826,7 @@ class GameActivity : Activity() {
     private fun applyTypefaceRecursive(view: View, typeface: android.graphics.Typeface) {
         when (view) {
             is TextView -> {
-                if (view.paint.isFakeBoldText || view.typeface?.isBold == true) {
+                if (view.paint.isFakeBoldText || (view.typeface?.isBold == true)) {
                     view.setTypeface(typeface, android.graphics.Typeface.BOLD)
                 } else {
                     view.typeface = typeface
@@ -866,12 +848,12 @@ class GameActivity : Activity() {
         return object : ArrayAdapter<String>(this, R.layout.spinner_item, items) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = super.getView(position, convertView, parent) as TextView
-                if (typeface != null) view.typeface = typeface
+                typeface?.let { view.typeface = it }
                 val isLynx = isLynxProvider()
                 val isTouchNav = position == 1
                 if (isLynx && isTouchNav) {
                     view.paintFlags = view.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
-                    view.setTextColor(Color.parseColor("#888888"))
+                    view.setTextColor("#888888".toColorInt())
                 } else {
                     view.paintFlags = view.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
                     view.setTextColor(Color.WHITE)
@@ -881,12 +863,12 @@ class GameActivity : Activity() {
 
             override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = super.getDropDownView(position, convertView, parent) as TextView
-                if (typeface != null) view.typeface = typeface
+                typeface?.let { view.typeface = it }
                 val isLynx = isLynxProvider()
                 val isTouchNav = position == 1
                 if (isLynx && isTouchNav) {
                     view.paintFlags = view.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
-                    view.setTextColor(Color.parseColor("#888888"))
+                    view.setTextColor("#888888".toColorInt())
                 } else {
                     view.paintFlags = view.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
                     view.setTextColor(Color.WHITE)
@@ -906,12 +888,12 @@ class GameActivity : Activity() {
         return object : ArrayAdapter<T>(this, R.layout.spinner_item, items) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = super.getView(position, convertView, parent) as TextView
-                if (typeface != null) view.typeface = typeface
+                typeface?.let { view.typeface = it }
                 return view
             }
             override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = super.getDropDownView(position, convertView, parent) as TextView
-                if (typeface != null) view.typeface = typeface
+                typeface?.let { view.typeface = it }
                 return view
             }
         }.apply {
@@ -945,7 +927,7 @@ class GameActivity : Activity() {
         val root = LinearLayout(this)
         root.layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
+            ViewGroup.LayoutParams.MATCH_PARENT,
         )
         root.orientation = LinearLayout.VERTICAL
         root.setBackgroundColor(Color.BLACK)
@@ -954,15 +936,15 @@ class GameActivity : Activity() {
         val buttonRow = LinearLayout(this)
         val buttonRowParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+            ViewGroup.LayoutParams.WRAP_CONTENT,
         )
         buttonRow.layoutParams = buttonRowParams
         buttonRow.orientation = LinearLayout.HORIZONTAL
         buttonRow.gravity = Gravity.CENTER_HORIZONTAL
         buttonRow.setPadding(0, 0, 0, 0) // No padding at the top
 
-        fun createWinBtn(iconRes: Int, onClick: () -> Unit): android.widget.ImageButton {
-            return android.widget.ImageButton(this).apply {
+        fun createWinBtn(iconRes: Int, onClick: () -> Unit): ImageButton {
+            return ImageButton(this).apply {
                 setImageResource(iconRes)
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 val pad = (10 * resources.displayMetrics.density).toInt()
@@ -973,16 +955,18 @@ class GameActivity : Activity() {
                 layoutParams = LinearLayout.LayoutParams(
                     0,
                     (50 * resources.displayMetrics.density).toInt(),
-                    1.0f
+                    1.0f,
                 )
                 setOnClickListener { onClick() }
             }
         }
 
         buttonRow.addView(createWinBtn(R.drawable.ic_game_menu) { GameEngine.nativeTypeChar(GameEngine.TWK_ESCAPE) })
-        buttonRow.addView(createWinBtn(R.drawable.ic_game_pause) {
-            GameEngine.nativeTypeChar(GameEngine.TWC_PAUSEGAME)
-        })
+        buttonRow.addView(
+            createWinBtn(R.drawable.ic_game_pause) {
+                GameEngine.nativeTypeChar(GameEngine.TWC_PAUSEGAME)
+            },
+        )
         buttonRow.addView(createWinBtn(R.drawable.ic_game_reset) { GameEngine.nativeTypeChar(GameEngine.TWC_SAMELEVEL) })
         root.addView(buttonRow)
 
@@ -992,7 +976,7 @@ class GameActivity : Activity() {
         windowFrame.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             0,
-            1.0f
+            1.0f,
         )
         windowFrame.orientation = LinearLayout.VERTICAL
         windowFrame.setBackgroundColor(Color.BLACK)
@@ -1002,7 +986,7 @@ class GameActivity : Activity() {
         val titleBarContainer = LinearLayout(this)
         titleBarContainer.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            (27 * resources.displayMetrics.density).toInt()
+            (27 * resources.displayMetrics.density).toInt(),
         )
         titleBarContainer.setBackgroundResource(R.drawable.tw_title_window)
         titleBarContainer.setPadding(pad3dp, pad3dp, pad3dp, 0)
@@ -1011,7 +995,7 @@ class GameActivity : Activity() {
         val titleBar = LinearLayout(this)
         val titleBarParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
+            ViewGroup.LayoutParams.MATCH_PARENT,
         )
         titleBar.layoutParams = titleBarParams
         titleBar.setBackgroundResource(R.drawable.tw_title_bg)
@@ -1022,7 +1006,7 @@ class GameActivity : Activity() {
         val iconView = ImageView(this)
         val iconParams = LinearLayout.LayoutParams(
             (16 * resources.displayMetrics.density).toInt(),
-            (16 * resources.displayMetrics.density).toInt()
+            (16 * resources.displayMetrics.density).toInt(),
         )
         iconParams.marginEnd = (6 * resources.displayMetrics.density).toInt()
         iconView.layoutParams = iconParams
@@ -1064,7 +1048,7 @@ class GameActivity : Activity() {
         val gameContainerParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             0,
-            1.0f
+            1.0f,
         )
         gameContainer.layoutParams = gameContainerParams
         gameContainer.setBackgroundColor(Color.BLACK)
@@ -1080,30 +1064,34 @@ class GameActivity : Activity() {
             val arrowContainer = overlay.findViewById<View>(R.id.container_arrow_keys)
             val dpadContainer = overlay.findViewById<View>(R.id.container_dpad_cross)
 
-            if (controlsStyle == 1) {
-                arrowContainer?.visibility = View.VISIBLE
-                dpadContainer?.visibility = View.GONE
-            } else if (controlsStyle == 2) { // D-Pad Left
-                arrowContainer?.visibility = View.GONE
-                dpadContainer?.visibility = View.VISIBLE
-                (dpadContainer?.layoutParams as? RelativeLayout.LayoutParams)?.let { lp ->
-                    lp.removeRule(RelativeLayout.ALIGN_PARENT_END)
-                    lp.addRule(RelativeLayout.ALIGN_PARENT_START)
-                    lp.marginStart = (16 * resources.displayMetrics.density).toInt()
-                    lp.marginEnd = 0
-                    lp.bottomMargin = (60 * resources.displayMetrics.density).toInt()
-                    dpadContainer.layoutParams = lp
+            when (controlsStyle) {
+                1 -> {
+                    arrowContainer?.visibility = View.VISIBLE
+                    dpadContainer?.visibility = View.GONE
                 }
-            } else if (controlsStyle == 3) { // D-Pad Right
-                arrowContainer?.visibility = View.GONE
-                dpadContainer?.visibility = View.VISIBLE
-                (dpadContainer?.layoutParams as? RelativeLayout.LayoutParams)?.let { lp ->
-                    lp.removeRule(RelativeLayout.ALIGN_PARENT_START)
-                    lp.addRule(RelativeLayout.ALIGN_PARENT_END)
-                    lp.marginStart = 0
-                    lp.marginEnd = (16 * resources.displayMetrics.density).toInt()
-                    lp.bottomMargin = (60 * resources.displayMetrics.density).toInt()
-                    dpadContainer.layoutParams = lp
+                2 -> { // D-Pad Left
+                    arrowContainer?.visibility = View.GONE
+                    dpadContainer?.visibility = View.VISIBLE
+                    (dpadContainer?.layoutParams as? RelativeLayout.LayoutParams)?.let { lp ->
+                        lp.removeRule(RelativeLayout.ALIGN_PARENT_END)
+                        lp.addRule(RelativeLayout.ALIGN_PARENT_START)
+                        lp.marginStart = (16 * resources.displayMetrics.density).toInt()
+                        lp.marginEnd = 0
+                        lp.bottomMargin = (60 * resources.displayMetrics.density).toInt()
+                        dpadContainer.layoutParams = lp
+                    }
+                }
+                3 -> { // D-Pad Right
+                    arrowContainer?.visibility = View.GONE
+                    dpadContainer?.visibility = View.VISIBLE
+                    (dpadContainer?.layoutParams as? RelativeLayout.LayoutParams)?.let { lp ->
+                        lp.removeRule(RelativeLayout.ALIGN_PARENT_START)
+                        lp.addRule(RelativeLayout.ALIGN_PARENT_END)
+                        lp.marginStart = 0
+                        lp.marginEnd = (16 * resources.displayMetrics.density).toInt()
+                        lp.bottomMargin = (60 * resources.displayMetrics.density).toInt()
+                        dpadContainer.layoutParams = lp
+                    }
                 }
             }
 
@@ -1135,13 +1123,13 @@ class GameActivity : Activity() {
                         val endState = GameEngine.nativeGetLevelEndState()
                         if (endState > 0) {
                             // Level Completed -> Proceed to Next Level
-                            GameEngine.nativeSendKey(GameEngine.TWK_RETURN, true)
+                            GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = true)
                         } else if (endState < 0) {
                             // Level Failed / Died / Time Out -> Restart Level
-                            GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, true)
+                            GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = true)
                         } else {
                             // Game Active -> Send directional move key
-                            GameEngine.nativeSendKey(twk, true)
+                            GameEngine.nativeSendKey(twk, down = true)
                         }
                         v.alpha = 0.8f
                     }
@@ -1149,11 +1137,11 @@ class GameActivity : Activity() {
                         v.isPressed = false
                         val endState = GameEngine.nativeGetLevelEndState()
                         if (endState > 0) {
-                            GameEngine.nativeSendKey(GameEngine.TWK_RETURN, false)
+                            GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = false)
                         } else if (endState < 0) {
-                            GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, false)
+                            GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = false)
                         } else {
-                            GameEngine.nativeSendKey(twk, false)
+                            GameEngine.nativeSendKey(twk, down = false)
                         }
                         v.alpha = defaultAlpha
                         v.performClick()
@@ -1162,11 +1150,11 @@ class GameActivity : Activity() {
                         v.isPressed = false
                         val endState = GameEngine.nativeGetLevelEndState()
                         if (endState > 0) {
-                            GameEngine.nativeSendKey(GameEngine.TWK_RETURN, false)
+                            GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = false)
                         } else if (endState < 0) {
-                            GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, false)
+                            GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = false)
                         } else {
-                            GameEngine.nativeSendKey(twk, false)
+                            GameEngine.nativeSendKey(twk, down = false)
                         }
                         v.alpha = defaultAlpha
                     }
@@ -1182,17 +1170,17 @@ class GameActivity : Activity() {
                 if (endState != 0) {
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
-                            if (endState > 0) GameEngine.nativeSendKey(GameEngine.TWK_RETURN, true)
-                            else GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, true)
+                            if (endState > 0) GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = true)
+                            else GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = true)
                         }
                         MotionEvent.ACTION_UP -> {
-                            if (endState > 0) GameEngine.nativeSendKey(GameEngine.TWK_RETURN, false)
-                            else GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, false)
+                            if (endState > 0) GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = false)
+                            else GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = false)
                             v.performClick()
                         }
                         MotionEvent.ACTION_CANCEL -> {
-                            if (endState > 0) GameEngine.nativeSendKey(GameEngine.TWK_RETURN, false)
-                            else GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, false)
+                            if (endState > 0) GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = false)
+                            else GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = false)
                         }
                     }
                     true
@@ -1254,13 +1242,13 @@ class GameActivity : Activity() {
             val adapter = object : ArrayAdapter<String>(this, R.layout.spinner_item, levelNames) {
                 override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                     val view = super.getView(position, convertView, parent) as TextView
-                    if (typeface != null) view.typeface = typeface
+                    typeface?.let { view.typeface = it }
                     setupIcon(view, position)
                     return view
                 }
                 override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
                     val view = super.getDropDownView(position, convertView, parent) as TextView
-                    if (typeface != null) view.typeface = typeface
+                    typeface?.let { view.typeface = it }
                     setupIcon(view, position)
                     return view
                 }
@@ -1394,13 +1382,13 @@ class GameActivity : Activity() {
         // Column Header Row
         val colHeader = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor("#1a1a1a"))
+            setBackgroundColor("#1a1a1a".toColorInt())
             setPadding((8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt())
         }
         val createHeaderTv = { txt: String, weight: Float, alignEnd: Boolean ->
             TextView(this).apply {
                 text = txt
-                setTextColor(Color.parseColor("#FFCC00")) // Gold color
+                setTextColor("#FFCC00".toColorInt()) // Gold color
                 textSize = 10f
                 setTypeface(customTypeface, android.graphics.Typeface.BOLD)
                 if (alignEnd) gravity = Gravity.END
@@ -1417,7 +1405,7 @@ class GameActivity : Activity() {
 
         // Scrollable ListView (Directly inside contentLayout)
         val listView = ListView(this).apply {
-            divider = android.graphics.drawable.ColorDrawable(Color.parseColor("#333333"))
+            divider = "#333333".toColorInt().toDrawable()
             dividerHeight = 1
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f)
         }
@@ -1428,7 +1416,7 @@ class GameActivity : Activity() {
                     orientation = LinearLayout.HORIZONTAL
                     setPadding((8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt())
                 }
-                row.setBackgroundColor(if (position % 2 == 0) Color.parseColor("#1a1a1a") else Color.parseColor("#222222"))
+                row.setBackgroundColor(if ((position % 2) == 0) "#1a1a1a".toColorInt() else "#222222".toColorInt())
                 row.removeAllViews()
 
                 val item = getItem(position) ?: return row
@@ -1451,11 +1439,11 @@ class GameActivity : Activity() {
                     }
                 }
 
-                val numColor = if (item.isSolved) Color.parseColor("#00FF00") else Color.parseColor("#666666")
-                val nameColor = if (item.isSolved) Color.WHITE else Color.parseColor("#666666")
-                val subColor = if (item.isSolved) Color.parseColor("#B0C4DE") else Color.parseColor("#555555")
-                val timeColor = if (item.isSolved) Color.parseColor("#00FFFF") else Color.parseColor("#555555")
-                val scoreColor = if (item.isSolved) Color.YELLOW else Color.parseColor("#555555")
+                val numColor = if (item.isSolved) "#00FF00".toColorInt() else "#666666".toColorInt()
+                val nameColor = if (item.isSolved) Color.WHITE else "#666666".toColorInt()
+                val subColor = if (item.isSolved) "#B0C4DE".toColorInt() else "#555555".toColorInt()
+                val timeColor = if (item.isSolved) "#00FFFF".toColorInt() else "#555555".toColorInt()
+                val scoreColor = if (item.isSolved) Color.YELLOW else "#555555".toColorInt()
 
                 row.addView(createCellTv(String.format(java.util.Locale.getDefault(), "%03d", item.levelNumber), numColor, 0.10f, false))
                 row.addView(createCellTv(if (item.isSolved) item.name.ifEmpty { "Level ${item.levelNumber}" } else "-", nameColor, 0.35f, false))
@@ -1494,7 +1482,7 @@ class GameActivity : Activity() {
         dialog.setView(rootLayout, 0, 0, 0, 0)
 
         dialog.window?.apply {
-            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             decorView.setPadding(0, 0, 0, 0)
         }
         closeBtn.setOnClickListener { dialog.dismiss() }
@@ -1512,7 +1500,7 @@ class GameActivity : Activity() {
         val currentMap = getCurrentMap()
         val setFiles = currentMap.values.toList()
         val selectedIdx = setsSpinner.selectedItemPosition
-        if (selectedIdx < 0 || selectedIdx >= setFiles.size) return
+        if ((selectedIdx < 0) || (selectedIdx >= setFiles.size)) return
 
         val selectedFile = setFiles[selectedIdx]
         val levelNum = SaveGameParser.findLevelByPassword(selectedFile, pwd, dataDir, setsDir)
@@ -1521,7 +1509,7 @@ class GameActivity : Activity() {
             val prefs = getSharedPreferences("tworld_prefs", MODE_PRIVATE)
             val currentUnlocked = prefs.getInt("unlocked_limit_$selectedFile", 1)
             val newUnlocked = maxOf(currentUnlocked, levelNum)
-            prefs.edit().putInt("unlocked_limit_$selectedFile", newUnlocked).apply()
+            prefs.edit { putInt("unlocked_limit_$selectedFile", newUnlocked) }
 
             val save = "${filesDir.absolutePath}/save"
             updateLevelList(selectedFile, dataDir, setsDir, save)
@@ -1537,6 +1525,20 @@ class GameActivity : Activity() {
         } else {
             android.widget.Toast.makeText(this, "Invalid Password", android.widget.Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun getTilesets(dirName: String): List<String> {
+        val base = getExternalFilesDir(null)?.parent ?: filesDir.absolutePath
+        val res = File(base, "res")
+        val dir = File(res, dirName)
+        val list = mutableSetOf("Tile World")
+        if (dir.exists() && dir.isDirectory) {
+            dir.listFiles { _, name -> name.lowercase().endsWith(".bmp") }?.forEach {
+                list.add(it.nameWithoutExtension)
+            }
+        }
+        val sortedSub = list.asSequence().filter { it != "Tile World" }.sortedWith(String.CASE_INSENSITIVE_ORDER).toList()
+        return listOf("Tile World") + sortedSub
     }
 
     override fun onResume() {
@@ -1569,10 +1571,11 @@ class GameActivity : Activity() {
 
     // ── Input forwarding ──────────────────────────────────────────────────
 
+    @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
-            event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
-            event.keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
+        if ((event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) ||
+            (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) ||
+            (event.keyCode == KeyEvent.KEYCODE_VOLUME_MUTE)) {
             return super.dispatchKeyEvent(event)
         }
 
@@ -1631,9 +1634,9 @@ class GameActivity : Activity() {
 
     private fun getVolumeColor(progress: Int): Int {
         val p = progress.coerceIn(0, 100) / 100.0f
-        val green = Color.parseColor("#29CE10")  // Green (#29CE10)
-        val orange = Color.parseColor("#FF9900") // Orange midpoint
-        val red = Color.parseColor("#EF3110")    // Red (#EF3110)
+        val green = "#29CE10".toColorInt()  // Green (#29CE10)
+        val orange = "#FF9900".toColorInt() // Orange midpoint
+        val red = "#EF3110".toColorInt()    // Red (#EF3110)
 
         val eval = android.animation.ArgbEvaluator()
         return if (p <= 0.5f) {
@@ -1646,7 +1649,7 @@ class GameActivity : Activity() {
     private fun updateSeekBarTrackColor(seekBar: SeekBar?, progress: Int) {
         if (seekBar == null) return
         val color = getVolumeColor(progress)
-        val drawable = seekBar.progressDrawable?.mutate() as? android.graphics.drawable.LayerDrawable ?: return
+        val drawable = (seekBar.progressDrawable?.mutate() as? LayerDrawable) ?: return
         val backgroundItem = drawable.findDrawableByLayerId(android.R.id.background)
         backgroundItem?.setTint(color)
         val progressItem = drawable.findDrawableByLayerId(android.R.id.progress)

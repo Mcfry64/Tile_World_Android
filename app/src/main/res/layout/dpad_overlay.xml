@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    tools:ignore="HardcodedText">
 
     <!-- ARROW KEYS CONTAINER (4 Buttons) -->
     <LinearLayout
@@ -33,6 +35,7 @@
                 android:layout_marginBottom="2dp"
                 android:alpha="0.3"
                 android:background="@drawable/tw_keyboard_key"
+                android:contentDescription="Up Arrow"
                 android:padding="24dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_arrow_up" />
@@ -53,6 +56,7 @@
                 android:layout_marginEnd="2dp"
                 android:alpha="1.0"
                 android:background="@drawable/tw_keyboard_key"
+                android:contentDescription="Left Arrow"
                 android:padding="24dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_arrow_left" />
@@ -65,6 +69,7 @@
                 android:layout_marginEnd="2dp"
                 android:alpha="1.0"
                 android:background="@drawable/tw_keyboard_key"
+                android:contentDescription="Down Arrow"
                 android:padding="24dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_arrow_down" />
@@ -76,6 +81,7 @@
                 android:layout_height="100dp"
                 android:alpha="1.0"
                 android:background="@drawable/tw_keyboard_key"
+                android:contentDescription="Right Arrow"
                 android:padding="24dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_arrow_right" />
