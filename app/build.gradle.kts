@@ -14,8 +14,8 @@ android {
         applicationId = "dev.mcfry64.tworld"
         minSdk = 26
         targetSdk = 36
-        versionCode = 362
-        versionName = "3.6.2"
+        versionCode = 400
+        versionName = "4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {

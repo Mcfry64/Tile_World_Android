@@ -130,7 +130,7 @@ Open **Android Studio → SDK Manager** (or use `sdkmanager` on the command line
 
 The APK will be located at:
 ```
-app/build/outputs/apk/debug/TileWorld-v3.4.1-debug.apk
+app/build/outputs/apk/debug/TileWorld-v4.0-debug.apk
 ```
 
 ---
@@ -195,7 +195,7 @@ app/src/main/
 
 ## Acknowledgements
 
-- **Mcfry64** — Current maintainer, HD rendering, touch controls, audio themes, & Android v3.4.1 enhancements
+- **Mcfry64** — Current maintainer, HD rendering, touch controls, audio themes, & Android v4.0 enhancements
 - **koolaidxk1d** — Original Android port & JNI bridge
 - **Brian Raiter, Madhav Shanbhag, Eric Schmidt** — Authors of the Tile World engine
 - **Chuck Sommerville** — Designer of the original *Chip's Challenge*
