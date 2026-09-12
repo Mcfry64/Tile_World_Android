@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Trophy Cup Rim & Bowl (Light Gray #AAAAAA) -->
+    <path
+        android:fillColor="#AAAAAA"
+        android:pathData="M6,3h12v2h-12z M5,5h14v3h-14z M6,8h12v3h-12z M8,11h8v3h-8z M10,14h4v2h-4z" />
+
+    <!-- Trophy Handles (Left & Right) -->
+    <path
+        android:fillColor="#AAAAAA"
+        android:pathData="M3,5h2v4h-2z M3,8h4v2h-4z M19,5h2v4h-2z M17,8h4v2h-4z" />
+
+    <!-- Stem & Base -->
+    <path
+        android:fillColor="#AAAAAA"
+        android:pathData="M11,16h2v3h-2z M7,19h10v3h-10z" />
+
+    <!-- Inner Cup Highlight (Shine #CCCCCC) -->
+    <path
+        android:fillColor="#CCCCCC"
+        android:pathData="M7,5h3v5h-2v-3h-1z" />
+</vector>

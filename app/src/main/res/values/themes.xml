@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.TileWorld" parent="android:Theme.NoTitleBar.Fullscreen">
+        <item name="android:windowTranslucentNavigation">true</item>
+    </style>
+</resources>

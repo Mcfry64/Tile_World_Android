@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Horizontale zigzag boven (pixel achtig, nog iets omhoog) -->
+    <path
+        android:fillColor="#00FF00"
+        android:pathData="M5,6.3 L6,6.3 L6,5.3 L7,5.3 L7,4.3 L8,4.3 L8,5.3 L9,5.3 L9,6.3 L10,6.3 L10,5.3 L11,5.3 L11,4.3 L12,4.3 L12,5.3 L13,5.3 L13,6.3 L14,6.3 L14,5.3 L15,5.3 L15,4.3 L16,4.3 L16,5.3 L17,5.3 L17,6.3 L18,6.3 L18,5.3 L19,5.3 L19,4.3 L20,4.3 L20,5.3 L19,5.3 L19,6.3 L18,6.3 L18,7.3 L17,7.3 L17,6.3 L16,6.3 L16,5.3 L15,5.3 L15,6.3 L14,6.3 L14,7.3 L13,7.3 L13,6.3 L12,6.3 L12,5.3 L11,5.3 L11,6.3 L10,6.3 L10,7.3 L9,7.3 L9,6.3 L8,6.3 L8,5.3 L7,5.3 L7,6.3 L6,6.3 L6,7.3 L5,7.3 Z" />
+
+    <!-- Subtitles icoon onder (pixel achtig blokjes, nog iets omhoog) -->
+    <path
+        android:fillColor="#00FF00"
+        android:pathData="M6,16.3 L10,16.3 L10,17.3 L6,17.3 Z M12,16.3 L18,16.3 L18,17.3 L12,17.3 Z M6,19.3 L14,19.3 L14,20.3 L6,20.3 Z M16,19.3 L18,19.3 L18,20.3 L16,20.3 Z" />
+</vector>

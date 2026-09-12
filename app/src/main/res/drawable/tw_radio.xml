@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Checked -->
+    <item android:state_checked="true">
+        <layer-list>
+
+            <!-- Outer black circle -->
+            <item>
+                <shape android:shape="oval">
+                    <solid android:color="#000000" />
+                    <size
+                        android:width="16dp"
+                        android:height="16dp" />
+                </shape>
+            </item>
+
+            <!-- Gray border -->
+            <item
+                android:left="1dp"
+                android:top="1dp"
+                android:right="1dp"
+                android:bottom="1dp">
+                <shape android:shape="oval">
+                    <solid android:color="#808080" />
+                </shape>
+            </item>
+
+            <!-- White inner circle -->
+            <item
+                android:left="2dp"
+                android:top="2dp"
+                android:right="2dp"
+                android:bottom="2dp">
+                <shape android:shape="oval">
+                    <solid android:color="#FFFFFF" />
+                </shape>
+            </item>
+
+            <!-- Checked dot -->
+            <item
+                android:left="5dp"
+                android:top="5dp"
+                android:right="5dp"
+                android:bottom="5dp">
+                <shape android:shape="oval">
+                    <solid android:color="#000000" />
+                </shape>
+            </item>
+
+        </layer-list>
+    </item>
+
+    <!-- Unchecked -->
+    <item>
+        <layer-list>
+
+            <!-- Outer black circle -->
+            <item>
+                <shape android:shape="oval">
+                    <solid android:color="#000000" />
+                    <size
+                        android:width="16dp"
+                        android:height="16dp" />
+                </shape>
+            </item>
+
+            <!-- Gray border -->
+            <item
+                android:left="1dp"
+                android:top="1dp"
+                android:right="1dp"
+                android:bottom="1dp">
+                <shape android:shape="oval">
+                    <solid android:color="#808080" />
+                </shape>
+            </item>
+
+            <!-- White inner circle -->
+            <item
+                android:left="2dp"
+                android:top="2dp"
+                android:right="2dp"
+                android:bottom="2dp">
+                <shape android:shape="oval">
+                    <solid android:color="#FFFFFF" />
+                </shape>
+            </item>
+
+        </layer-list>
+    </item>
+
+</selector>

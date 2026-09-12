@@ -1,0 +1,52 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+
+    <!-- 1. Zwarte buitenrand (met afgeronde/afgesneden hoeken op 32x32 grid) -->
+    <path
+        android:fillColor="#0D0E10"
+        android:pathData="M 3,1 L 29,1 L 31,3 L 31,29 L 29,31 L 3,31 L 1,29 L 1,3 Z" />
+
+    <!-- 2. Diepe val-schaduw onder en rechts van de toets -->
+    <path
+        android:fillColor="#15161A"
+        android:pathData="M 2,30 L 30,30 L 30,2 L 31,3 L 31,29 L 29,31 L 3,31 Z" />
+
+    <!-- 3. Bovenste schuine helling (Felste lichtinval van boven) -->
+    <path
+        android:fillColor="#585C68"
+        android:pathData="M 2,2 L 30,2 L 26,6 L 6,6 Z" />
+
+    <!-- 4. Linker schuine helling (Medium lichtinval van links) -->
+    <path
+        android:fillColor="#444852"
+        android:pathData="M 2,2 L 6,6 L 6,26 L 2,30 Z" />
+
+    <!-- 5. Rechter schuine helling (Donkere schaduwzijde) -->
+    <path
+        android:fillColor="#22242B"
+        android:pathData="M 30,2 L 30,30 L 26,26 L 26,6 Z" />
+
+    <!-- 6. Onderste schuine helling (Diepste schaduwzijde onderaan) -->
+    <path
+        android:fillColor="#18191E"
+        android:pathData="M 2,30 L 6,26 L 26,26 L 30,30 Z" />
+
+    <!-- 8. Verhoogde basissokkel van het binnenkwadraat -->
+    <path
+        android:fillColor="#34373E"
+        android:pathData="M 6,6 H 26 V 26 H 6 Z" />
+
+    <!-- 9. Lichte omlijning rondom de binnenste schaal -->
+    <path
+        android:fillColor="#626673"
+        android:pathData="M 7,7 H 25 V 25 H 7 Z" />
+
+    <!-- 10. Het binnenoppervlak (de kom waar het pijltje in staat) -->
+    <path
+        android:fillColor="#2E3037"
+        android:pathData="M 8,8 H 24 V 24 H 8 Z" />
+
+</vector>

@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Pixel art UP arrow matching example image -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,4h2 v2h-2z M10,6h4 v2h-4z M9,8h6 v2h-6z M8,10h8 v2h-8z M10,12h4 v8h-4z" />
+</vector>

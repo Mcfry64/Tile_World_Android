@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="180dp"
+    android:height="180dp"
+    android:viewportWidth="180"
+    android:viewportHeight="180">
+
+    <!-- 1. Outer edge / shadow (thicker/flatter profile) -->
+    <path
+        android:fillColor="#0D0E10"
+        android:pathData="M60,0 L120,0 L120,60 L180,60 L180,120 L120,120 L120,180 L60,180 L60,120 L0,120 L0,60 L60,60 Z" />
+
+    <!-- 2. Base body of the cross -->
+    <path
+        android:fillColor="#34373E"
+        android:pathData="M60,1 L120,1 L120,60 L179,60 L179,120 L120,120 L120,179 L60,179 L60,120 L1,120 L1,60 L60,60 Z" />
+
+    <!-- 3. North Arm Bevels (Shallow/Short 6px profile) -->
+    <path
+        android:fillColor="#585C68"
+        android:pathData="M60,1 L120,1 L114,6 L66,6 Z" />
+    <path
+        android:fillColor="#444852"
+        android:pathData="M60,1 L66,6 L66,60 L60,60 Z" />
+    <path
+        android:fillColor="#22242B"
+        android:pathData="M120,1 L114,6 L114,60 L120,60 Z" />
+
+    <!-- 4. West Arm Bevels (Shallow/Short 6px profile) -->
+    <path
+        android:fillColor="#585C68"
+        android:pathData="M1,60 L6,66 L66,66 L60,60 Z" />
+    <path
+        android:fillColor="#18191E"
+        android:pathData="M1,120 L6,114 L66,114 L60,120 Z" />
+    <path
+        android:fillColor="#444852"
+        android:pathData="M1,60 L1,120 L6,114 L6,66 Z" />
+
+    <!-- 5. East Arm Bevels (Shallow/Short 6px profile) -->
+    <path
+        android:fillColor="#585C68"
+        android:pathData="M179,60 L174,66 L114,66 L120,60 Z" />
+    <path
+        android:fillColor="#18191E"
+        android:pathData="M179,120 L174,114 L114,114 L120,120 Z" />
+    <path
+        android:fillColor="#22242B"
+        android:pathData="M179,60 L179,120 L174,114 L174,66 Z" />
+
+    <!-- 6. South Arm Bevels (Shallow/Short 6px profile) -->
+    <path
+        android:fillColor="#18191E"
+        android:pathData="M60,179 L120,179 L114,174 L66,174 Z" />
+    <path
+        android:fillColor="#444852"
+        android:pathData="M60,120 L66,114 L66,174 L60,179 Z" />
+    <path
+        android:fillColor="#22242B"
+        android:pathData="M120,120 L114,114 L114,174 L120,179 Z" />
+
+</vector>

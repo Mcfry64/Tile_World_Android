@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Subtitles icoon onder (4 streepjes / blokjes) -->
+    <path
+        android:fillColor="#00FF00"
+        android:pathData="M6,16.3 L10,16.3 L10,17.3 L6,17.3 Z M12,16.3 L18,16.3 L18,17.3 L12,17.3 Z M6,19.3 L14,19.3 L14,20.3 L6,20.3 Z M16,19.3 L18,19.3 L18,20.3 L16,20.3 Z" />
+</vector>

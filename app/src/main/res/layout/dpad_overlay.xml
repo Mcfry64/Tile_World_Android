@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- ARROW KEYS CONTAINER (4 Buttons) -->
+    <LinearLayout
+        android:id="@+id/container_arrow_keys"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="60dp"
+        android:background="@android:color/transparent"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <!-- TOP ROW: UP -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btn_up"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_marginBottom="2dp"
+                android:alpha="0.3"
+                android:background="@drawable/tw_keyboard_key"
+                android:padding="24dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_arrow_up" />
+        </LinearLayout>
+
+        <!-- BOTTOM ROW: LEFT, DOWN, RIGHT -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <!-- LEFT -->
+            <ImageButton
+                android:id="@+id/btn_left"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_marginEnd="2dp"
+                android:alpha="1.0"
+                android:background="@drawable/tw_keyboard_key"
+                android:padding="24dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_arrow_left" />
+
+            <!-- DOWN -->
+            <ImageButton
+                android:id="@+id/btn_down"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_marginEnd="2dp"
+                android:alpha="1.0"
+                android:background="@drawable/tw_keyboard_key"
+                android:padding="24dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_arrow_down" />
+
+            <!-- RIGHT -->
+            <ImageButton
+                android:id="@+id/btn_right"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:alpha="1.0"
+                android:background="@drawable/tw_keyboard_key"
+                android:padding="24dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_arrow_right" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- DPAD CROSS CONTAINER (Unified Connected Gameboy D-Pad) -->
+    <RelativeLayout
+        android:id="@+id/container_dpad_cross"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="60dp"
+        android:alpha="0.35"
+        android:background="@drawable/tw_dpad_cross_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <!-- D-Pad UP -->
+        <Button
+            android:id="@+id/dpad_btn_up"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_alignParentTop="true"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:text="▲"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <!-- D-Pad LEFT -->
+        <Button
+            android:id="@+id/dpad_btn_left"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="@android:color/transparent"
+            android:text="◀"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <!-- D-Pad RIGHT -->
+        <Button
+            android:id="@+id/dpad_btn_right"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="@android:color/transparent"
+            android:text="▶"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <!-- D-Pad DOWN -->
+        <Button
+            android:id="@+id/dpad_btn_down"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:text="▼"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+    </RelativeLayout>
+
+</RelativeLayout>

@@ -1,0 +1,15 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/tmp
+
+# Unused tworld backends (not part of the Android build)
+app/src/main/cpp/tworld_src/oshw-sdl/
+app/src/main/cpp/tworld_src/oshw-qt/

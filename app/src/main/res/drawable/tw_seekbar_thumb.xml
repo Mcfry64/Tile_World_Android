@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Black outer border -->
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="30dp" android:height="24dp" />
+            <solid android:color="#000000" />
+        </shape>
+    </item>
+    <!-- Top/Left Highlight -->
+    <item android:bottom="1dp" android:left="1dp" android:right="1dp" android:top="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#666666" />
+        </shape>
+    </item>
+    <!-- Bottom/Right Dark Shadow -->
+    <item android:bottom="1dp" android:left="2dp" android:right="1dp" android:top="2dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#1a1a1a" />
+        </shape>
+    </item>
+    <!-- Button Face -->
+    <item android:bottom="2dp" android:left="2dp" android:right="2dp" android:top="2dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#3c3c3c" />
+        </shape>
+    </item>
+    <!-- Recessed Groove 1 (Left) -->
+    <item android:left="8dp" android:top="5dp" android:bottom="5dp" android:width="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#111111" />
+        </shape>
+    </item>
+    <item android:left="9dp" android:top="5dp" android:bottom="5dp" android:width="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#222222" />
+        </shape>
+    </item>
+    <item android:left="10dp" android:top="5dp" android:bottom="5dp" android:width="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#888888" />
+        </shape>
+    </item>
+    <!-- Recessed Groove 2 (Center) -->
+    <item android:left="13dp" android:top="5dp" android:bottom="5dp" android:width="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#111111" />
+        </shape>
+    </item>
+    <item android:left="14dp" android:top="5dp" android:bottom="5dp" android:width="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#222222" />
+        </shape>
+    </item>
+    <item android:left="15dp" android:top="5dp" android:bottom="5dp" android:width="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#888888" />
+        </shape>
+    </item>
+    <!-- Recessed Groove 3 (Right) -->
+    <item android:left="18dp" android:top="5dp" android:bottom="5dp" android:width="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#111111" />
+        </shape>
+    </item>
+    <item android:left="19dp" android:top="5dp" android:bottom="5dp" android:width="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#222222" />
+        </shape>
+    </item>
+    <item android:left="20dp" android:top="5dp" android:bottom="5dp" android:width="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#888888" />
+        </shape>
+    </item>
+</layer-list>
