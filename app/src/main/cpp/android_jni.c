@@ -26,20 +26,21 @@
 #include "tworld_src/generic/generic.h"
 #include "tworld_src/play.h"
 
-/* Declared in tworld.c */
-extern int tworld(int argc, char *argv[]);
-
-/* Declared in androidoshw.c */
+/* External functions declared across tworld engine C modules */
+extern int  tworld(int argc, char *argv[]);
 extern void android_send_key(int twk, int down);
 extern void android_type_char(int twk);
 extern int  android_get_keyboard_request(void);
 extern int  setsfxmsg(char const *msg, int msecs, int bold);
-
-/* Declared in androidsfx.c / androidout.c */
 extern void android_audio_pause(void);
 extern void android_audio_resume(void);
 extern void android_set_sfx_enabled(int enabled);
-extern int setdisplaymsg(char const *msg, int msecs, int bold);
+extern int  setdisplaymsg(char const *msg, int msecs, int bold);
+extern int  setvolume(int v, int display);
+extern int  android_is_paused(void);
+extern void android_set_game_speed(int percent);
+extern void setsfxtheme(const char *theme_name);
+extern int  android_get_tile_scale(void);
 
 static JavaVM   *g_vm = NULL;
 static jclass    g_music_cls = NULL;
@@ -58,12 +59,17 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
             g_music_cls = (jclass)(*env)->NewGlobalRef(env, localCls);
             g_stop_bgm_mid = (*env)->GetStaticMethodID(env, g_music_cls, "stopMusicFromNative", "()V");
             (*env)->DeleteLocalRef(env, localCls);
+        } else if ((*env)->ExceptionCheck(env)) {
+            (*env)->ExceptionClear(env);
         }
+
         jclass engCls = (*env)->FindClass(env, "dev/mcfry64/tworld/GameEngine");
         if (engCls) {
             g_engine_cls = (jclass)(*env)->NewGlobalRef(env, engCls);
             g_sfx_text_mid = (*env)->GetStaticMethodID(env, g_engine_cls, "onSfxTextFromNative", "(Ljava/lang/String;)V");
             (*env)->DeleteLocalRef(env, engCls);
+        } else if ((*env)->ExceptionCheck(env)) {
+            (*env)->ExceptionClear(env);
         }
     }
     return JNI_VERSION_1_6;
@@ -112,8 +118,6 @@ void android_stop_bgm_on_win(void)
         (*g_vm)->DetachCurrentThread(g_vm);
     }
 }
-extern int setvolume(int v, int display);
-extern int android_is_paused(void);
 
 /* ---------------------------------------------------------------------------
  * Framebuffer — game writes to geng.screen; we copy to a shared buffer.
@@ -159,11 +163,15 @@ void android_update_screen(void)
     if (name) {
         strncpy(s_cached_name, name, sizeof(s_cached_name) - 1);
         s_cached_name[sizeof(s_cached_name) - 1] = '\0';
+    } else {
+        s_cached_name[0] = '\0';
     }
     const char *author = get_current_level_author();
     if (author) {
         strncpy(s_cached_author, author, sizeof(s_cached_author) - 1);
         s_cached_author[sizeof(s_cached_author) - 1] = '\0';
+    } else {
+        s_cached_author[0] = '\0';
     }
 
     pthread_mutex_unlock(&fb_mutex);
@@ -185,12 +193,11 @@ static int  s_start_level = 0;
 
 static void *game_thread_func(void *arg)
 {
-    (void)arg;
     char lvl_str[16];
-    snprintf(lvl_str, sizeof lvl_str, "%d", s_start_level);
+    snprintf(lvl_str, sizeof(lvl_str), "%d", s_start_level);
 
     /* Construct argv: tworld -D data -S save -R res -L sets [-T tileset] [set] [lvl] */
-    char *argv[14];
+    char *argv[16];
     int i = 0;
     argv[i++] = "tworld";
     argv[i++] = "-D"; argv[i++] = s_data_dir;
@@ -233,18 +240,21 @@ JNI_FN(nativeInit)(JNIEnv *env, jclass cls,
                    jstring jSetsDir, jstring jSaveDir)
 {
     (void)cls;
-    const char *d = (*env)->GetStringUTFChars(env, jDataDir, NULL);
-    const char *r = (*env)->GetStringUTFChars(env, jResDir,  NULL);
-    const char *l = (*env)->GetStringUTFChars(env, jSetsDir, NULL);
-    const char *s = (*env)->GetStringUTFChars(env, jSaveDir, NULL);
-    snprintf(s_data_dir, sizeof s_data_dir, "%s", d);
-    snprintf(s_res_dir,  sizeof s_res_dir,  "%s", r);
-    snprintf(s_sets_dir, sizeof s_sets_dir, "%s", l);
-    snprintf(s_save_dir, sizeof s_save_dir, "%s", s);
-    (*env)->ReleaseStringUTFChars(env, jDataDir, d);
-    (*env)->ReleaseStringUTFChars(env, jResDir,  r);
-    (*env)->ReleaseStringUTFChars(env, jSetsDir, l);
-    (*env)->ReleaseStringUTFChars(env, jSaveDir, s);
+    const char *d = jDataDir ? (*env)->GetStringUTFChars(env, jDataDir, NULL) : NULL;
+    const char *r = jResDir  ? (*env)->GetStringUTFChars(env, jResDir,  NULL) : NULL;
+    const char *l = jSetsDir ? (*env)->GetStringUTFChars(env, jSetsDir, NULL) : NULL;
+    const char *s = jSaveDir ? (*env)->GetStringUTFChars(env, jSaveDir, NULL) : NULL;
+
+    snprintf(s_data_dir, sizeof(s_data_dir), "%s", d ? d : "");
+    snprintf(s_res_dir,  sizeof(s_res_dir),  "%s", r ? r : "");
+    snprintf(s_sets_dir, sizeof(s_sets_dir), "%s", l ? l : "");
+    snprintf(s_save_dir, sizeof(s_save_dir), "%s", s ? s : "");
+
+    if (d) (*env)->ReleaseStringUTFChars(env, jDataDir, d);
+    if (r) (*env)->ReleaseStringUTFChars(env, jResDir,  r);
+    if (l) (*env)->ReleaseStringUTFChars(env, jSetsDir, l);
+    if (s) (*env)->ReleaseStringUTFChars(env, jSaveDir, s);
+
     LOGI("nativeInit: data=%s res=%s sets=%s save=%s",
          s_data_dir, s_res_dir, s_sets_dir, s_save_dir);
     return JNI_TRUE;
@@ -265,25 +275,30 @@ JNI_FN(nativeStart)(JNIEnv *env, jclass cls, jstring jSetName, jint jLevelNum, j
         return JNI_FALSE;
     }
 
-    const char *setName = (*env)->GetStringUTFChars(env, jSetName, NULL);
-    snprintf(s_start_set, sizeof s_start_set, "%s", setName);
+    const char *setName = jSetName ? (*env)->GetStringUTFChars(env, jSetName, NULL) : NULL;
+    if (setName) {
+        snprintf(s_start_set, sizeof(s_start_set), "%s", setName);
+        (*env)->ReleaseStringUTFChars(env, jSetName, setName);
+    } else {
+        s_start_set[0] = '\0';
+    }
     s_start_level = (int)jLevelNum;
-    (*env)->ReleaseStringUTFChars(env, jSetName, setName);
 
-    const char *tileset = (*env)->GetStringUTFChars(env, jTileset, NULL);
-    /* Store tileset choice in rc or memory? For now, we use -T in argv. */
+    const char *tileset = jTileset ? (*env)->GetStringUTFChars(env, jTileset, NULL) : NULL;
     char tileset_arg[256];
-    snprintf(tileset_arg, sizeof tileset_arg, "%s", tileset);
-    (*env)->ReleaseStringUTFChars(env, jTileset, tileset);
+    if (tileset) {
+        snprintf(tileset_arg, sizeof(tileset_arg), "%s", tileset);
+        (*env)->ReleaseStringUTFChars(env, jTileset, tileset);
+    } else {
+        tileset_arg[0] = '\0';
+    }
 
     LOGI("nativeStart: Starting engine for set=%s level=%d tileset=%s",
          s_start_set, s_start_level, tileset_arg);
 
     s_running = 1;
-    /* We need to pass the tileset to the game thread. */
-    /* I'll use a static buffer for simplicity in this bridge. */
     static char s_tileset_file[256];
-    strncpy(s_tileset_file, tileset_arg, sizeof s_tileset_file - 1);
+    snprintf(s_tileset_file, sizeof(s_tileset_file), "%s", tileset_arg);
 
     if (pthread_create(&s_game_thread, NULL, game_thread_func, s_tileset_file) != 0) {
         LOGE("failed to create game thread");
@@ -314,6 +329,7 @@ JNIEXPORT void JNICALL
 JNI_FN(nativeCopyPixels)(JNIEnv *env, jclass cls, jobject bitmap)
 {
     (void)cls;
+    if (!bitmap) return;
     AndroidBitmapInfo info;
     if (AndroidBitmap_getInfo(env, bitmap, &info) < 0) return;
     if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888)  return;
@@ -322,7 +338,7 @@ JNI_FN(nativeCopyPixels)(JNIEnv *env, jclass cls, jobject bitmap)
     if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return;
 
     pthread_mutex_lock(&fb_mutex);
-    if (framebuffer && fb_width > 0 && fb_height > 0) {
+    if (framebuffer && fb_width > 0 && fb_height > 0 && pixels) {
         int copy_w = (int)info.width  < fb_width  ? (int)info.width  : fb_width;
         int copy_h = (int)info.height < fb_height ? (int)info.height : fb_height;
         for (int y = 0; y < copy_h; y++) {
@@ -410,8 +426,6 @@ JNI_FN(nativeSetSfxEnabled)(JNIEnv *env, jclass cls, jboolean enabled)
     android_set_sfx_enabled(enabled ? 1 : 0);
 }
 
-extern void android_set_game_speed(int percent);
-
 JNIEXPORT void JNICALL
 JNI_FN(nativeSetGameSpeed)(JNIEnv *env, jclass cls, jint percent)
 {
@@ -433,8 +447,6 @@ JNI_FN(nativeSetSfxVolume)(JNIEnv *env, jclass cls, jint volume)
     setvolume(volume, 0);
 }
 
-extern void setsfxtheme(const char *theme_name);
-
 JNIEXPORT void JNICALL
 JNI_FN(nativeSetSfxTheme)(JNIEnv *env, jclass cls, jstring jTheme)
 {
@@ -444,8 +456,12 @@ JNI_FN(nativeSetSfxTheme)(JNIEnv *env, jclass cls, jstring jTheme)
         return;
     }
     const char *theme = (*env)->GetStringUTFChars(env, jTheme, NULL);
-    setsfxtheme(theme);
-    (*env)->ReleaseStringUTFChars(env, jTheme, theme);
+    if (theme) {
+        setsfxtheme(theme);
+        (*env)->ReleaseStringUTFChars(env, jTheme, theme);
+    } else {
+        setsfxtheme("");
+    }
 }
 
 JNIEXPORT void JNICALL
@@ -457,8 +473,12 @@ JNI_FN(nativeShowMessage)(JNIEnv *env, jclass cls, jstring jMsg)
         return;
     }
     const char *msg = (*env)->GetStringUTFChars(env, jMsg, NULL);
-    setsfxmsg(msg, 800, 200);
-    (*env)->ReleaseStringUTFChars(env, jMsg, msg);
+    if (msg) {
+        setsfxmsg(msg, 800, 200);
+        (*env)->ReleaseStringUTFChars(env, jMsg, msg);
+    } else {
+        setsfxmsg(NULL, 0, 0);
+    }
 }
 
 JNIEXPORT jboolean JNICALL
@@ -488,8 +508,6 @@ JNI_FN(nativeGetLevelEndState)(JNIEnv *env, jclass cls)
     return (jint)st;
 }
 
-extern int android_get_tile_scale(void);
-
 JNIEXPORT jint JNICALL
 JNI_FN(nativeGetTileScale)(JNIEnv *env, jclass cls)
 {
@@ -516,8 +534,6 @@ JNI_FN(nativeGetCurrentLevelAuthor)(JNIEnv *env, jclass cls)
     pthread_mutex_unlock(&fb_mutex);
     return s;
 }
-
-
 
 JNIEXPORT void JNICALL
 JNI_FN(nativeStop)(JNIEnv *env, jclass cls)

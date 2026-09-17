@@ -1,5 +1,6 @@
 package dev.mcfry64.tworld
 
+import androidx.annotation.Keep
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
@@ -7,6 +8,7 @@ import android.util.Log
 import java.io.File
 import kotlin.math.abs
 
+@Keep
 object MusicManager {
     private const val TAG = "MusicManager"
     private var mediaPlayer: MediaPlayer? = null

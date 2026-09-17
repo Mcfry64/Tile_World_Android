@@ -1,9 +1,11 @@
 package dev.mcfry64.tworld
 
+import androidx.annotation.Keep
 import android.content.Context
 import android.graphics.Bitmap
 import java.io.File
 
+@Keep
 object GameEngine {
 
     init { System.loadLibrary("tworld") }

@@ -6,18 +6,12 @@ plugins {
 
 android {
     namespace = "dev.mcfry64.tworld"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.mcfry64.tworld"
         minSdk = 26
-        targetSdk {
-            version = release(36)
-        }
+        targetSdk = 36
         versionCode = 400
         versionName = "4.0"
 
