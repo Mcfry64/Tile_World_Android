@@ -1,0 +1,1 @@
+Tile World is an Android emulation of the classic Chip's Challenge puzzle game engine. It includes support for MS and Lynx rulesets, custom sound/music themes, and level sets.
