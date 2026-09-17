@@ -538,15 +538,15 @@ class GameSurfaceView(
                     // Re-trigger active directional keys continuously (matches touchscreen behavior)
                     val liveBits = keyBits.get()
                     if (liveBits != 0) {
-                        if (liveBits and BIT_UP != 0) GameEngine.nativeSendKey(GameEngine.TWK_UP, down = true)
-                        if (liveBits and BIT_DOWN != 0) GameEngine.nativeSendKey(GameEngine.TWK_DOWN, down = true)
-                        if (liveBits and BIT_LEFT != 0) GameEngine.nativeSendKey(GameEngine.TWK_LEFT, down = true)
-                        if (liveBits and BIT_RIGHT != 0) GameEngine.nativeSendKey(GameEngine.TWK_RIGHT, down = true)
+                        if ((liveBits and BIT_UP) != 0) GameEngine.nativeSendKey(GameEngine.TWK_UP, down = true)
+                        if ((liveBits and BIT_DOWN) != 0) GameEngine.nativeSendKey(GameEngine.TWK_DOWN, down = true)
+                        if ((liveBits and BIT_LEFT) != 0) GameEngine.nativeSendKey(GameEngine.TWK_LEFT, down = true)
+                        if ((liveBits and BIT_RIGHT) != 0) GameEngine.nativeSendKey(GameEngine.TWK_RIGHT, down = true)
                     }
                 }
 
                 val currentLevel = GameEngine.nativeGetCurrentLevelNumber()
-                if (currentLevel != lastLevelNum && currentLevel > 0) {
+                if ((currentLevel != lastLevelNum) && (currentLevel > 0)) {
                     val name = GameEngine.nativeGetCurrentLevelName()
                     val author = GameEngine.nativeGetCurrentLevelAuthor()
                     (context as? GameActivity)?.let { activity ->
@@ -558,10 +558,10 @@ class GameSurfaceView(
 
                 val w = GameEngine.nativeGetScreenWidth()
                 val h = GameEngine.nativeGetScreenHeight()
-                if (w <= 0 || h <= 0) { sleep(16); continue }
+                if ((w <= 0) || (h <= 0)) { sleep(16); continue }
 
                 // Ensure bitmap matches game resolution
-                if (gameBitmap == null || gameBitmap!!.width != w || gameBitmap!!.height != h) {
+                if ((gameBitmap == null) || (gameBitmap!!.width != w) || (gameBitmap!!.height != h)) {
                     gameBitmap?.recycle()
                     gameBitmap = createBitmap(w, h, Bitmap.Config.ARGB_8888)
                 }
@@ -609,7 +609,7 @@ class GameSurfaceView(
 
                     val totalScale = if (pixelPerfect) scaleFactor else 1
 
-                    if (rawBgBmp != null && totalScale != lastBgScale) {
+                    if ((rawBgBmp != null) && (totalScale != lastBgScale)) {
                         lastBgScale = totalScale
                         val scaledBmp = if (totalScale > 1) {
                             rawBgBmp!!.scale(rawBgBmp!!.width * totalScale, rawBgBmp!!.height * totalScale, filter = false)
@@ -632,13 +632,13 @@ class GameSurfaceView(
                             if (dstLeft > 0) {
                                 canvas.drawRect(0f, 0f, dstLeft.toFloat(), viewH.toFloat(), bgPaint)
                             }
-                            if (viewW > dstLeft + dstW) {
+                            if (viewW > (dstLeft + dstW)) {
                                 canvas.drawRect((dstLeft + dstW).toFloat(), 0f, viewW.toFloat(), viewH.toFloat(), bgPaint)
                             }
                             if (dstTop > 0) {
                                 canvas.drawRect(0f, 0f, viewW.toFloat(), dstTop.toFloat(), bgPaint)
                             }
-                            if (dstTop + dstH < viewH) {
+                            if ((dstTop + dstH) < viewH) {
                                 canvas.drawRect(0f, (dstTop + dstH).toFloat(), viewW.toFloat(), viewH.toFloat(), bgPaint)
                             }
                         } else {

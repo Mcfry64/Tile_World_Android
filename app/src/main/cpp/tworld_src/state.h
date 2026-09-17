@@ -285,4 +285,10 @@ typedef struct gamestate {
 #define	fireboots(st)		((st)->boots[2])
 #define	waterboots(st)		((st)->boots[3])
 
+/* Tileset configuration settings */
+extern int cfg_entity_explosion_freeze;
+extern int cfg_entity_explosion_speed;
+extern int cfg_monster_explode_on_collision;
+extern int cfg_chip_animation_speed;
+
 #endif

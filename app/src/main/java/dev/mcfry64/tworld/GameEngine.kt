@@ -43,6 +43,7 @@ object GameEngine {
     @JvmStatic external fun nativeSetSfxTheme(theme: String)
     @JvmStatic external fun nativeShowMessage(text: String)
     @JvmStatic external fun nativeSetGameSpeed(percent: Int)
+    @JvmStatic external fun nativeSetUnlimitedTime(unlimited: Boolean)
     @JvmStatic external fun nativeIsGamePaused(): Boolean
     @JvmStatic external fun nativeGetLevelEndState(): Int
     @JvmStatic external fun nativeGetCurrentLevelNumber(): Int

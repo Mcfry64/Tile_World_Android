@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <bitset>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -22,7 +23,7 @@ using std::ifstream;
 using std::find;
 using std::getline;
 using std::istringstream;
-using std::strcpy;
+using std::snprintf;
 using std::string;
 using std::vector;
 
@@ -52,20 +53,19 @@ int loadmessagesfromfile(char const *filename)
     string line;
     while (getline(in, line))
     {
-        // Just in case DOS line endings on Linux. Not sure if needed.
-        string::iterator rpos(find(line.begin(), line.end(), '\r'));
-        if (rpos != line.end())
-            line.erase(rpos);
+        // Strip DOS/Windows line endings (\r) if present
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
 
         if (line.empty()) continue;
         if (line[0] == ':')
-	{
+        {
             isactive.reset();
 
-            istringstream in(line);
-            in.get(); // Discard ':'
+            istringstream ss(line);
+            ss.get(); // Discard ':'
             string type;
-            while (in >> type)
+            while (ss >> type)
             {
                 int typenum = find(messageTypeNames,
                     messageTypeNames + MessageTypeCount, type)
@@ -75,15 +75,15 @@ int loadmessagesfromfile(char const *filename)
             }
         }
         else
-	{
+        {
             for (size_t i = 0; i < isactive.size(); ++i)
             {
                 if (isactive[i])
                     newtypeindex[i].push_back(newmessages.size());
             }
-            line = line.substr(0, maxMessageSize+1);
+            line = line.substr(0, maxMessageSize);
             newmessages.push_back(line);
-	}
+        }
     }
 
     messages.swap(newmessages);
@@ -98,7 +98,7 @@ int loadmessagesfromfile(char const *filename)
 
 char const *getmessage(int type)
 {
-    static char buf[maxMessageSize+1];
+    static char buf[maxMessageSize + 1];
 
     if ((type < 0) || (type >= MessageTypeCount) 
         || typeindex[type].size() == 0)
@@ -108,6 +108,6 @@ char const *getmessage(int type)
     char const *s = messages[mnum].c_str();
     current[type] = (current[type] + 1) % typeindex[type].size();
 
-    strcpy(buf, s);
+    snprintf(buf, sizeof(buf), "%s", s);
     return buf;
 }

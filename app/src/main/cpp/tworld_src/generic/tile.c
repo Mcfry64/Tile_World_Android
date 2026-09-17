@@ -339,7 +339,13 @@ static TW_Surface *getcellimage(TW_Rect *rect,
 	rect->h = geng.htile;
     }
 
-    nt = (timerval + 1) % tileptr[top].celcount;
+    int top_spd = (top == ICChip && cfg_chip_animation_speed > 0) ? cfg_chip_animation_speed : 1;
+    int bot_spd = (bot == ICChip && cfg_chip_animation_speed > 0) ? cfg_chip_animation_speed : 1;
+
+    int t_top = (timerval >= 0) ? (timerval / top_spd) : timerval;
+    int t_bot = (timerval >= 0) ? (timerval / bot_spd) : timerval;
+
+    nt = (t_top + 1) % tileptr[top].celcount;
     if (bot == Nothing || bot == Empty || !tileptr[top].transp[0]) {
 	if (tileptr[top].opaque[nt])
 	    return tileptr[top].opaque[nt];
@@ -350,7 +356,7 @@ static TW_Surface *getcellimage(TW_Rect *rect,
 
     if (!tileptr[bot].celcount)
 	die("map element %02X has no suitable image", bot);
-    nb = (timerval + 1) % tileptr[bot].celcount;
+    nb = (t_bot + 1) % tileptr[bot].celcount;
     dest = tileptr[Overlay_Buffer].opaque[0];
     if (tileptr[bot].opaque[nb]) {
 	TW_BlitSurface(tileptr[bot].opaque[nb], NULL, dest, NULL);

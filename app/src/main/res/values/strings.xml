@@ -1,3 +1,30 @@
 <resources>
     <string name="app_name">Tile World</string>
+    <string name="launcher_title">Tile World Launcher</string>
+    <string name="label_audio">Audio:</string>
+    <string name="audio_marquee_text">+++ ♪ AKI — Demoscene legend since 1994. ♫ Discover her music: YT▶ @aki_128 ☕ ko-fi.com/aki128 +++</string>
+    <string name="label_bgm">BGM</string>
+    <string name="desc_sfx_assist">SFX Assist Indicator</string>
+    <string name="label_sfx">SFX</string>
+    <string name="label_touch">Touch:</string>
+    <string name="label_touch_classic">CLASSIC</string>
+    <string name="label_onscreen">Onscreen:</string>
+    <string name="label_onscreen_dpad">DPAD L</string>
+    <string name="label_display">Display:</string>
+    <string name="label_display_fullscreen">FULL</string>
+    <string name="label_ruleset">Ruleset:</string>
+    <string name="desc_ruleset_logo">Ruleset Logo</string>
+    <string name="label_ruleset_ms">MS</string>
+    <string name="label_tileset">Tileset:</string>
+    <string name="label_level_set">Level Set:</string>
+    <string name="label_select_level">Select Level:</string>
+    <string name="desc_enter_password">Enter Password</string>
+    <string name="desc_level_scores">Level Scores</string>
+    <string name="progress_overlay_default">Progress: 0/0</string>
+    <string name="btn_start_text">START GAME</string>
+    <string name="label_timer_limit">Timer Limit:</string>
+    <string name="label_timer_normal">NORMAL</string>
+    <string name="label_game_speed">Game Speed:</string>
+    <string name="hint_hold_start">Hold START GAME 10s again to disable</string>
+    <string name="desc_tile_world_icon">Tile World Icon</string>
 </resources>

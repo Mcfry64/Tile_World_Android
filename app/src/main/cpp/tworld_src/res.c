@@ -38,6 +38,69 @@
 #define RES_TXT_MESSAGE		(RES_TXT_BASE + 1)
 #define	RES_TXT_LAST		RES_TXT_MESSAGE
 
+int cfg_entity_explosion_freeze = 0;
+int cfg_entity_explosion_speed = 1;
+int cfg_monster_explode_on_collision = 1;
+int cfg_chip_animation_speed = 1;
+
+static void load_tileset_ini(char const *bmp_path) {
+    char inipath[PATH_MAX + 1];
+    size_t len = strlen(bmp_path);
+    if (len > 4 && (strcmp(bmp_path + len - 4, ".bmp") == 0 || strcmp(bmp_path + len - 4, ".BMP") == 0)) {
+        strcpy(inipath, bmp_path);
+        strcpy(inipath + len - 4, ".ini");
+    } else {
+        snprintf(inipath, sizeof(inipath), "%s.ini", bmp_path);
+    }
+
+    cfg_entity_explosion_freeze = 0;
+    cfg_entity_explosion_speed = 1;
+    cfg_monster_explode_on_collision = 1;
+    cfg_chip_animation_speed = 1;
+
+    FILE *f = fopen(inipath, "r");
+    if (!f) return;
+
+    char line[256];
+    while (fgets(line, sizeof(line), f)) {
+        char *p = strchr(line, ';');
+        if (p) *p = '\0';
+        p = strchr(line, '#');
+        if (p) *p = '\0';
+
+        char *start = line;
+        while (*start && isspace((unsigned char)*start)) start++;
+        if (!*start) continue;
+
+        char key[128];
+        char val[128];
+        if (sscanf(start, "%127[^=]=%127s", key, val) == 2) {
+            char *k = key + strlen(key) - 1;
+            while (k >= key && isspace((unsigned char)*k)) *k-- = '\0';
+            k = key;
+            while (*k && isspace((unsigned char)*k)) k++;
+
+            char *v = val + strlen(val) - 1;
+            while (v >= val && isspace((unsigned char)*v)) *v-- = '\0';
+            v = val;
+            while (*v && isspace((unsigned char)*v)) v++;
+
+            if (strcasecmp(k, "EntityExplosionFreeze") == 0 || strcasecmp(k, "entity_explosion_freeze") == 0) {
+                cfg_entity_explosion_freeze = (strcasecmp(v, "true") == 0 || atoi(v) != 0);
+            } else if (strcasecmp(k, "EntityExplosionSpeed") == 0 || strcasecmp(k, "entity_explosion_speed") == 0) {
+                cfg_entity_explosion_speed = atoi(v);
+                if (cfg_entity_explosion_speed < 1) cfg_entity_explosion_speed = 1;
+            } else if (strcasecmp(k, "MonsterExplodeOnCollision") == 0 || strcasecmp(k, "monster_explode_on_collision") == 0) {
+                cfg_monster_explode_on_collision = (strcasecmp(v, "true") == 0 || atoi(v) != 0);
+            } else if (strcasecmp(k, "ChipAnimationSpeed") == 0 || strcasecmp(k, "chip_animation_speed") == 0 || strcasecmp(k, "ICChipAnimationSpeed") == 0 || strcasecmp(k, "ic_chip_animation_speed") == 0) {
+                cfg_chip_animation_speed = atoi(v);
+                if (cfg_chip_animation_speed < 1) cfg_chip_animation_speed = 1;
+            }
+        }
+    }
+    fclose(f);
+}
+
 #define	RES_SND_BASE		(RES_TXT_LAST + 1)
 #define	RES_SND_CHIP_LOSES	(RES_SND_BASE + SND_CHIP_LOSES)
 #define	RES_SND_CHIP_WINS	(RES_SND_BASE + SND_CHIP_WINS)
@@ -328,6 +391,7 @@ static int loadimages(void)
     if (!tileset_name || !*tileset_name) tileset_name = (currentruleset == Ruleset_Lynx) ? "atiles.bmp" : "tiles.bmp";
 
     combinepath(path, resdir, tileset_name);
+    load_tileset_ini(path);
     struct stat st;
     long size = -1;
     if (stat(path, &st) == 0) size = (long)st.st_size;

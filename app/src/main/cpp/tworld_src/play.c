@@ -19,11 +19,14 @@
 #include	"unslist.h"
 #include	"play.h"
 
+int g_unlimited_time = 0;
+
 /* The current state of the current game.
  */
 static gamestate state;
 
 int isoutoftime(void) {
+    if (g_unlimited_time) return FALSE;
     int const starttime = (state.game && state.game->time ? state.game->time : 999);
     int currenttime = state.currenttime + state.timeoffset;
     int timeleft = starttime - currenttime / TICKS_PER_SECOND;
@@ -382,11 +385,14 @@ int drawscreen(int showframe) {
         besttime = TIME_NIL;
 
     timeleft = starttime - currenttime / TICKS_PER_SECOND;
-    if (state.game->time && timeleft <= 0) {
+    if (!g_unlimited_time && state.game->time && timeleft <= 0) {
         timeleft = 0;
 #ifndef TWPLUSPLUS
 	setdisplaymsg("Out of time", 2, 2);
 #endif
+    }
+    if (g_unlimited_time && state.game->time && timeleft <= 0) {
+        timeleft = 0;
     }
 
     return displaygame(&state, timeleft, besttime, showinitstate);

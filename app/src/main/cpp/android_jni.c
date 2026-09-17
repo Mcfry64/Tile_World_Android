@@ -420,6 +420,13 @@ JNI_FN(nativeSetGameSpeed)(JNIEnv *env, jclass cls, jint percent)
 }
 
 JNIEXPORT void JNICALL
+JNI_FN(nativeSetUnlimitedTime)(JNIEnv *env, jclass cls, jboolean unlimited)
+{
+    (void)env; (void)cls;
+    g_unlimited_time = unlimited ? 1 : 0;
+}
+
+JNIEXPORT void JNICALL
 JNI_FN(nativeSetSfxVolume)(JNIEnv *env, jclass cls, jint volume)
 {
     (void)env; (void)cls;

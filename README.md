@@ -9,12 +9,11 @@ The game engine runs natively via JNI with no SDL dependency. Audio uses AAudio,
 ## Features
 
 - **Open-Source Level Sets**: Bundled with 100% free community level packs (CCLP1, CCLP2, CCLP3, CCLP4, CCLP5, and Intro). Automatic detection of user-provided level files on storage.
-- **Pixel-Perfect Tile Rendering**: Two-Pass Sharp Bilinear Sub-pixel scaling for zero pixel shimmering and razor-sharp 2D tile graphics.
-- **Custom Content & AUTO Linkage**:
+- **Pixel-Perfect Display**: Renders in razor-sharp pixel-exact resolution, automatically integer-scaled to fit the maximum width of your screen.
+- **Custom Content Options**:
   - **Custom Tilesets**: Dynamic scanning of `.bmp` tile sheets in `res/mstiles/` and `res/lynxtiles/`.
   - **SFX Themes**: Dynamic scanning of `res/sfx/` with dedicated `PickupKeySound` and optional `StopBgmOnLevelComplete`.
   - **BGM Themes**: Dynamic scanning of `res/bgm/` supporting classic level rotation (CHIPS01/CHIPS02/CANYON) and random `.ogg` track selection.
-  - **AUTO Audio Mode**: Automatically matches BGM and SFX themes to the active Tileset name (with automatic fallback to `aki` BGM and `Tile World` SFX).
 - **Side-by-Side Control Dropdowns**:
   - **Touchscreen Controls**: `Touch Nav`, `Swipe Classic`, `Swipe Fluid`, `Swipe Precise`, `None`
   - **Onscreen Controls**: `None`, `Arrow Keys`, `D-Pad`

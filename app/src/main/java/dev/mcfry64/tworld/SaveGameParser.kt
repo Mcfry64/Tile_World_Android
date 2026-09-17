@@ -114,7 +114,7 @@ object SaveGameParser {
                 solvedCount++
                 totalScore += (i * 500).toLong()
             }
-            val name = if (i in 1..levelNames.size) levelNames[i - 1] else "Level $i"
+            val name = if ((i in 1..levelNames.size)) levelNames[i - 1] else "Level $i"
             var author = if (i in 1..levelAuthors.size) levelAuthors[i - 1] else ""
             
             // Hardcoded fallback for the original game

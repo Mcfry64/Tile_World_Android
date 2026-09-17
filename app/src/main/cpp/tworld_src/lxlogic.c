@@ -11,6 +11,7 @@
 #include	"state.h"
 #include	"random.h"
 #include	"logic.h"
+#include	"play.h"
 
 /* A number well above the maximum number of creatures that could possibly
  * exist simultaneously.
@@ -136,7 +137,7 @@ static gamestate       *state;
 #define	creaturelistend()	(getlxstate().crend)
 
 #define	inendgame()		(getlxstate().endgametimer)
-#define	startendgametimer()	(getlxstate().endgametimer = 12 + 1)
+#define	startendgametimer()	(getlxstate().endgametimer = (12 * (cfg_entity_explosion_speed > 0 ? cfg_entity_explosion_speed : 1)) + 1)
 #define	decrendgametimer()	(--getlxstate().endgametimer)
 #define	resetendgametimer()	(getlxstate().endgametimer = 0)
 
@@ -485,8 +486,13 @@ static void removechip(int reason, creature *also)
       case CHIP_COLLIDED:
 	addsoundeffect(SND_CHIP_LOSES);
 	removecreature(chip, Entity_Explosion);
-	if (also && also != chip)
-	    removecreature(also, Entity_Explosion);
+	if (also && also != chip) {
+	    if (cfg_monster_explode_on_collision) {
+		removecreature(also, Entity_Explosion);
+	    } else {
+		removeanimation(also);
+	    }
+	}
 	break;
     }
 
@@ -1638,7 +1644,7 @@ static void initialhousekeeping(void)
 	if (completed()) {
 	    startendgametimer();
 	    timeoffset() = 1;
-	} else if (timelimit() && currenttime() >= timelimit()) {
+	} else if (timelimit() && !g_unlimited_time && currenttime() >= timelimit()) {
 	    removechip(CHIP_OUTOFTIME, NULL);
 	}
     }
@@ -1943,6 +1949,20 @@ static int advancegame(gamelogic *logic)
 	if (cr != getchip() && cr->hidden)
 	    continue;
 	if (isanimation(cr->id)) {
+	    if (cr->id == Entity_Explosion) {
+		int spd = cfg_entity_explosion_speed > 0 ? cfg_entity_explosion_speed : 1;
+		if ((currenttime() % spd) == 0) {
+		    --cr->frame;
+		    if (cr->frame < 0) {
+			if (cfg_entity_explosion_freeze) {
+			    cr->frame = 0;
+			} else {
+			    removeanimation(cr);
+			}
+		    }
+		}
+		continue;
+	    }
 	    --cr->frame;
 	    if (cr->frame < 0)
 		removeanimation(cr);

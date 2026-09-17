@@ -48,7 +48,10 @@
         android:fillColor="#22242B"
         android:pathData="M179,60 L179,120 L174,114 L174,66 Z" />
 
-    <!-- 6. South Arm Bevels (Shallow/Short 6px profile) -->
+    <!-- 7. Center indentation (Thumb rest) -->
+    <path
+        android:fillColor="#2E3037"
+        android:pathData="M 75,75 H 105 V 105 H 75 Z" />
     <path
         android:fillColor="#18191E"
         android:pathData="M60,179 L120,179 L114,174 L66,174 Z" />
@@ -58,5 +61,22 @@
     <path
         android:fillColor="#22242B"
         android:pathData="M120,120 L114,114 L114,174 L120,179 Z" />
+
+    <!-- 7. Center indentation (Thumb rest) -->
+    <path
+        android:fillColor="#2E3037"
+        android:pathData="M 72,72 H 108 V 108 H 72 Z" />
+    <path
+        android:fillColor="#15161A"
+        android:pathData="M 72,72 L 108,72 L 104,76 L 76,76 Z" />
+    <path
+        android:fillColor="#15161A"
+        android:pathData="M 72,72 L 76,76 L 76,104 L 72,108 Z" />
+    <path
+        android:fillColor="#444852"
+        android:pathData="M 108,72 L 104,76 L 104,104 L 108,108 Z" />
+    <path
+        android:fillColor="#444852"
+        android:pathData="M 72,108 L 76,104 L 104,104 L 108,108 Z" />
 
 </vector>

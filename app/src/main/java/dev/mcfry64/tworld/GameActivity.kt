@@ -8,37 +8,52 @@ import androidx.core.graphics.scale
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import android.annotation.SuppressLint
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import android.media.AudioAttributes
 import android.media.SoundPool
+import android.app.AlertDialog
+import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.Shader
+import android.graphics.Typeface
+import android.graphics.drawable.LayerDrawable
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.text.InputFilter
+import android.text.InputType
+import android.text.TextUtils
 import android.util.Log
+import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
-import android.view.WindowManager
-import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.view.WindowManager
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.view.Gravity
-import android.graphics.Color
-
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.EditText
 import android.widget.ListView
+import android.widget.ProgressBar
+import android.widget.RelativeLayout
 import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
-import android.widget.ProgressBar
-import android.widget.RelativeLayout
-import android.app.AlertDialog
-import android.graphics.drawable.LayerDrawable
+import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import java.io.File
+import kotlin.math.abs
 
 class GameActivity : ComponentActivity() {
 
@@ -50,14 +65,16 @@ class GameActivity : ComponentActivity() {
     private lateinit var setProgressBar: ProgressBar
     private lateinit var progressOverlayText: TextView
     private lateinit var startButton: Button
-    private lateinit var swipeStyleSpinner: Spinner
-    private lateinit var swipeDescText: TextView
+    private lateinit var btnTouchToggle: View
+    private lateinit var tvTouchLabel: TextView
     private var isLynx = false
     private var gameTitleText: TextView? = null
 
     private var currentSetProgress: SetProgress? = null
     private var isGameRunning = false
     private var isEnginePaused = false
+    private var activeSetName: String = ""
+    private var activeTileset: String = ""
 
     private val msSets = linkedMapOf(
         "Chip's Challenge (MS)" to "cc-ms.dac",
@@ -117,10 +134,17 @@ class GameActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Fix Android launcher re-launch bug: If app is already running, prevent launching a new launcher activity
+        if ((!isTaskRoot) && (intent != null) && intent.hasCategory(Intent.CATEGORY_LAUNCHER) && (Intent.ACTION_MAIN == intent.action)) {
+            finish()
+            return
+        }
+
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val attribs = window.attributes
             attribs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             window.attributes = attribs
@@ -148,6 +172,7 @@ class GameActivity : ComponentActivity() {
         Log.d(TAG, "showLauncher: Resetting UI to level selector")
         isGameRunning = false
         isEnginePaused = false
+        val prefs = getSharedPreferences("tworld_prefs", MODE_PRIVATE)
         hideSystemUI()
         MusicManager.stopMusic()
         setContentView(R.layout.activity_main)
@@ -156,9 +181,9 @@ class GameActivity : ComponentActivity() {
         try {
             val bgFile = File(filesDir, "res/background.bmp")
             val bmp = if (bgFile.exists()) {
-                android.graphics.BitmapFactory.decodeFile(bgFile.absolutePath)
+                BitmapFactory.decodeFile(bgFile.absolutePath)
             } else {
-                android.graphics.BitmapFactory.decodeStream(assets.open("res/background.bmp"))
+                BitmapFactory.decodeStream(assets.open("res/background.bmp"))
             }
             if (bmp != null) {
                 // Match the exact scaling factor used by C++ GameSurfaceView (screenWidth / 288f)
@@ -168,7 +193,7 @@ class GameActivity : ComponentActivity() {
                 val scaledBmp = bmp.scale(scaledW, scaledH)
 
                 val tiledDrawable = scaledBmp.toDrawable(resources).apply {
-                    setTileModeXY(android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT)
+                    setTileModeXY(Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
                 }
                 rootLauncher?.background = tiledDrawable
             }
@@ -185,11 +210,9 @@ class GameActivity : ComponentActivity() {
         setProgressBar = findViewById(R.id.progress_set)
         progressOverlayText = findViewById(R.id.text_progress_overlay)
         startButton = findViewById(R.id.btn_start)
-        swipeStyleSpinner = findViewById(R.id.spinner_swipe_style)
-        swipeDescText = findViewById(R.id.text_swipe_desc)
+        btnTouchToggle = findViewById(R.id.btn_touch_toggle)
+        tvTouchLabel = findViewById(R.id.tv_touch_label)
         val save = "${filesDir.absolutePath}/save"
-        
-        val prefs = getSharedPreferences("tworld_prefs", MODE_PRIVATE)
 
         val passwordButton = findViewById<ImageButton>(R.id.btn_password)
         passwordButton.setOnClickListener {
@@ -219,13 +242,15 @@ class GameActivity : ComponentActivity() {
         }
 
         val audioMarqueeText = findViewById<TextView>(R.id.text_audio_marquee)
+        audioMarqueeText?.isSingleLine = true
         audioMarqueeText?.isSelected = true
 
         val bgmThemeSpinner = findViewById<Spinner>(R.id.spinner_bgm_theme)
         val sfxThemeSpinner = findViewById<Spinner>(R.id.spinner_sfx_theme)
 
-        val marqueeHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        val marqueeHandler = Handler(Looper.getMainLooper())
         var revertMarqueeRunnable: Runnable? = null
+        var startScrollRunnable: Runnable? = null
 
         fun getBgmThemeDescription(themeName: String): String {
             return when (themeName.trim().uppercase()) {
@@ -237,25 +262,69 @@ class GameActivity : ComponentActivity() {
 
         fun updateAudioMarquee() {
             revertMarqueeRunnable?.let { marqueeHandler.removeCallbacks(it) }
+            startScrollRunnable?.let { marqueeHandler.removeCallbacks(it) }
             val bgmThemeName = bgmThemeSpinner.selectedItem?.toString() ?: "AKI"
             val desc = getBgmThemeDescription(bgmThemeName)
 
-            audioMarqueeText?.ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
-            audioMarqueeText?.gravity = Gravity.CENTER_VERTICAL
+            audioMarqueeText?.setTextColor("#00FF00".toColorInt())
+            audioMarqueeText?.isSingleLine = true
+            audioMarqueeText?.ellipsize = TextUtils.TruncateAt.MARQUEE
+            audioMarqueeText?.gravity = Gravity.CENTER_VERTICAL or Gravity.START
             audioMarqueeText?.text = desc
+            audioMarqueeText?.isSelected = false
             audioMarqueeText?.isSelected = true
         }
 
-        fun showStaticVolumeFeedback(text: String, durationMs: Long = 500) {
+        fun showFeedback(text: CharSequence, durationMs: Long = 2500, color: Int? = null, scrollAfterFreeze: Boolean = false) {
             revertMarqueeRunnable?.let { marqueeHandler.removeCallbacks(it) }
-            audioMarqueeText?.ellipsize = null
-            audioMarqueeText?.isSelected = false
-            audioMarqueeText?.gravity = Gravity.CENTER_VERTICAL or Gravity.START
-            audioMarqueeText?.text = text
+            startScrollRunnable?.let { marqueeHandler.removeCallbacks(it) }
+            audioMarqueeText?.setTextColor(color ?: "#00FF00".toColorInt())
 
-            val runnable = Runnable { updateAudioMarquee() }
-            revertMarqueeRunnable = runnable
-            marqueeHandler.postDelayed(runnable, durationMs)
+            if (scrollAfterFreeze) {
+                val bgmThemeName = bgmThemeSpinner.selectedItem?.toString() ?: "AKI"
+                val bgmDesc = getBgmThemeDescription(bgmThemeName)
+                val combinedText = "$text                    $bgmDesc"
+
+                // 1) Freeze static for durationMs (2.5s)
+                audioMarqueeText?.ellipsize = null
+                audioMarqueeText?.isSelected = false
+                audioMarqueeText?.gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                audioMarqueeText?.text = combinedText
+
+                // 2) Start smooth marquee scrolling of combinedText
+                val scrollRunnable = Runnable {
+                    audioMarqueeText?.isSingleLine = true
+                    audioMarqueeText?.ellipsize = TextUtils.TruncateAt.MARQUEE
+                    audioMarqueeText?.gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                    audioMarqueeText?.text = combinedText
+                    audioMarqueeText?.isSelected = false
+                    audioMarqueeText?.isSelected = true
+                }
+                startScrollRunnable = scrollRunnable
+                marqueeHandler.postDelayed(scrollRunnable, durationMs)
+
+                // 3) Exactly as $text finishes scrolling off screen, switch text to ONLY bgmDesc so bgmDesc loops continuously (touch -> bgm -> bgm -> bgm...)
+                val scrollTimeMs = (text.length + 5) * 240L
+                val revertRunnable = Runnable {
+                    updateAudioMarquee()
+                }
+                revertMarqueeRunnable = revertRunnable
+                marqueeHandler.postDelayed(revertRunnable, durationMs + scrollTimeMs)
+            } else {
+                // Short message: show static for durationMs, then revert to standard BGM marquee
+                audioMarqueeText?.ellipsize = null
+                audioMarqueeText?.isSelected = false
+                audioMarqueeText?.gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                audioMarqueeText?.text = text
+
+                val runnable = Runnable { updateAudioMarquee() }
+                revertMarqueeRunnable = runnable
+                marqueeHandler.postDelayed(runnable, durationMs)
+            }
+        }
+
+        fun showStaticVolumeFeedback(text: CharSequence, durationMs: Long = 1500, color: Int? = null) {
+            showFeedback(text, durationMs, color, scrollAfterFreeze = false)
         }
 
         // Restore settings
@@ -385,14 +454,14 @@ class GameActivity : ComponentActivity() {
 
         MusicManager.setActiveBgmTheme(availableBgmThemes[bgmThemeIdx])
 
-        bgmThemeSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+        bgmThemeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                 val selectedTheme = availableBgmThemes[pos.coerceIn(0, availableBgmThemes.size - 1)]
                 prefs.edit { putString("bgm_theme", selectedTheme) }
                 MusicManager.setActiveBgmTheme(selectedTheme)
                 updateAudioMarquee()
             }
-            override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
+            override fun onNothingSelected(p0: AdapterView<*>?) {}
         }
 
         // SFX Theme Dropdown Initialization
@@ -408,14 +477,14 @@ class GameActivity : ComponentActivity() {
         val initialSfxTheme = availableThemes[themeIdx]
         GameEngine.nativeSetSfxTheme(initialSfxTheme)
 
-        sfxThemeSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+        sfxThemeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                 val selectedTheme = availableThemes[pos.coerceIn(0, availableThemes.size - 1)]
                 prefs.edit { putString("sfx_theme", selectedTheme) }
                 GameEngine.nativeSetSfxTheme(selectedTheme)
                 updateAudioMarquee()
             }
-            override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
+            override fun onNothingSelected(p0: AdapterView<*>?) {}
         }
         
         val btnSfxToggle = findViewById<View>(R.id.btn_sfx_toggle)
@@ -477,9 +546,11 @@ class GameActivity : ComponentActivity() {
 
         fun updatePixelPerfectButtonUI() {
             if (isPixelPerfect) {
+                tvPixelPerfectLabel?.text = "1:1"
                 tvPixelPerfectLabel?.setTextColor("#00FF00".toColorInt())
             } else {
-                tvPixelPerfectLabel?.setTextColor("#888888".toColorInt())
+                tvPixelPerfectLabel?.text = "FULL"
+                tvPixelPerfectLabel?.setTextColor("#CFFF04".toColorInt())
             }
         }
         updatePixelPerfectButtonUI()
@@ -489,47 +560,82 @@ class GameActivity : ComponentActivity() {
             prefs.edit { putBoolean("pixel_perfect_enabled", isPixelPerfect) }
             updatePixelPerfectButtonUI()
             if (isPixelPerfect) {
-                showStaticVolumeFeedback("[ Pixel-Perfect Integer Scaling Enabled ]", 1500)
+                showFeedback("[ Display: 1:1 PIXEL PERFECT — Native unscaled retro resolution with 100% sharp pixel precision ]", durationMs = 2500, color = "#00FF00".toColorInt(), scrollAfterFreeze = true)
             } else {
-                showStaticVolumeFeedback("[ Pixel-Perfect Scaling Disabled ]", 1500)
+                showFeedback("[ Display: FULL SCREEN — Scaled to fit screen with smooth graphics for maximum visibility ]", durationMs = 2500, color = "#CFFF04".toColorInt(), scrollAfterFreeze = true)
             }
         }
 
-        // Onscreen Controls Dropdown Initialization (None, Arrow Keys, D-Pad Left, D-Pad Right)
-        val onscreenControlsSpinner = findViewById<Spinner>(R.id.spinner_onscreen_controls)
-        val onscreenOptions = listOf("None", "Arrow Keys", "D-Pad Left", "D-Pad Right")
-        val onscreenAdapter = createCustomFontAdapter(onscreenOptions)
-        onscreenControlsSpinner.adapter = onscreenAdapter
+        // Onscreen Controls Toggle Button Initialization (None, Arrow Keys, D-Pad Left, D-Pad Right)
+        val btnOnscreenToggle = findViewById<View>(R.id.btn_onscreen_toggle)
+        val tvOnscreenLabel = findViewById<TextView>(R.id.tv_onscreen_label)
 
+        val onscreenLabels = mapOf(
+            0 to "NONE",
+            1 to "ARROWS",
+            2 to "DPAD L",
+            3 to "DPAD R",
+        )
 
         var savedStyle = prefs.getInt("onscreen_controls_style", -1)
         if (savedStyle == -1) {
             savedStyle = if (prefs.getBoolean("controls_enabled", false)) 1 else 0
         }
-        onscreenControlsSpinner.setSelection(savedStyle.coerceIn(0, onscreenOptions.size - 1))
+        var onscreenMode = savedStyle.coerceIn(0, 3)
 
-        onscreenControlsSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                prefs.edit { putInt("onscreen_controls_style", pos) }
+        fun updateOnscreenButtonUI() {
+            tvOnscreenLabel?.text = onscreenLabels[onscreenMode] ?: "NONE"
+            if (onscreenMode == 0) {
+                tvOnscreenLabel?.setTextColor("#888888".toColorInt())
+            } else {
+                tvOnscreenLabel?.setTextColor("#00FF00".toColorInt())
             }
-            override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
+        }
+        updateOnscreenButtonUI()
+
+        btnOnscreenToggle?.setOnClickListener {
+            onscreenMode = (onscreenMode + 1) % 4
+            prefs.edit { putInt("onscreen_controls_style", onscreenMode) }
+            updateOnscreenButtonUI()
+
+            val onscreenToasts = mapOf(
+                0 to "[ Onscreen Controls: Disabled ]",
+                1 to "[ Onscreen Controls: Arrow Keys ]",
+                2 to "[ Onscreen Controls: D-Pad Left ]",
+                3 to "[ Onscreen Controls: D-Pad Right ]",
+            )
+            showStaticVolumeFeedback(onscreenToasts[onscreenMode] ?: "", 1500)
         }
 
-        val touchOptions = listOf("None", "Touch Nav", "Swipe Classic", "Swipe Precise", "Swipe Fluid")
-        val touchDescs = mapOf(
-            0 to "No touch or swipe navigation enabled.",
-            1 to "Tap on screen relative to Chip to move.",
-            2 to "Standard continuous swipe controls.",
-            3 to "Single discrete step per swipe flick.",
-            4 to "Smooth continuous turns without lifting finger.",
+        // Onscreen Controls Size Dropdown Initialization
+        val onscreenSizeSpinner = findViewById<Spinner>(R.id.spinner_onscreen_size)
+        val onscreenSizeOptions = listOf("75% S", "100% M", "125% L", "150% XL")
+        val onscreenSizeAdapter = createCustomFontAdapter(onscreenSizeOptions)
+        onscreenSizeSpinner?.adapter = onscreenSizeAdapter
+
+        val savedScaleIdx = prefs.getInt("onscreen_controls_scale_idx", 1)
+        onscreenSizeSpinner?.setSelection(savedScaleIdx.coerceIn(0, 3))
+
+        onscreenSizeSpinner?.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+                prefs.edit { putInt("onscreen_controls_scale_idx", pos) }
+            }
+            override fun onNothingSelected(p0: AdapterView<*>?) {}
+        }
+
+
+        val touchLabels = mapOf(
+            0 to "NONE",
+            1 to "NAV.",
+            2 to "CLASSIC",
+            3 to "PRECISE",
+            4 to "FLUID",
         )
-        val touchAdapter = createTouchControlAdapter(touchOptions) { isLynx }
-        swipeStyleSpinner.adapter = touchAdapter
 
         val isTouchNav = prefs.getBoolean("touch_nav_enabled", false)
         val lastSwipeStyle = prefs.getInt("swipe_style", 2)
 
-        val initialSelection = if (isTouchNav && !isLynx) {
+        var touchControlMode = if (isTouchNav && !isLynx) {
             1
         } else {
             when (lastSwipeStyle) {
@@ -541,38 +647,45 @@ class GameActivity : ComponentActivity() {
             }
         }
 
-        var autoJumpedFromTouchNavToNone = false
-
-        swipeStyleSpinner.setSelection(initialSelection)
-        swipeDescText.text = touchDescs[initialSelection] ?: ""
-
-        swipeStyleSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
-                if (isLynx && (pos == 1)) {
-                    autoJumpedFromTouchNavToNone = true
-                    swipeStyleSpinner.setSelection(0)
-                    @Suppress("SetTextI18n")
-                    swipeDescText.text = "Touch navigation is not available on Lynx ruleset."
-                    return
-                }
-
-                if (autoJumpedFromTouchNavToNone) {
-                    autoJumpedFromTouchNavToNone = false
-                    @Suppress("SetTextI18n")
-                    swipeDescText.text = "Touch navigation is not available on Lynx ruleset."
-                } else {
-                    swipeDescText.text = touchDescs[pos] ?: ""
-                }
-
-                when (pos) {
-                    0 -> prefs.edit { putBoolean("touch_nav_enabled", false).putInt("swipe_style", -1) }
-                    1 -> prefs.edit { putBoolean("touch_nav_enabled", true).putInt("swipe_style", 2) }
-                    2 -> prefs.edit { putBoolean("touch_nav_enabled", false).putInt("swipe_style", 2) }
-                    3 -> prefs.edit { putBoolean("touch_nav_enabled", false).putInt("swipe_style", 1) }
-                    4 -> prefs.edit { putBoolean("touch_nav_enabled", false).putInt("swipe_style", 0) }
-                }
+        fun updateTouchButtonUI() {
+            tvTouchLabel.text = touchLabels[touchControlMode] ?: "NONE"
+            if (touchControlMode == 0) {
+                tvTouchLabel.setTextColor("#888888".toColorInt())
+            } else {
+                tvTouchLabel.setTextColor("#00FF00".toColorInt())
             }
-            override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
+        }
+        updateTouchButtonUI()
+
+        btnTouchToggle.setOnClickListener {
+            var nextMode = (touchControlMode + 1) % 5
+            if (isLynx && (nextMode == 1)) {
+                nextMode = 2
+            }
+            touchControlMode = nextMode
+
+            val (isNav, swipeStyle) = when (touchControlMode) {
+                0 -> Pair(false, -1)
+                1 -> Pair(true, 2)
+                2 -> Pair(false, 2)
+                3 -> Pair(false, 1)
+                4 -> Pair(false, 0)
+                else -> Pair(false, -1)
+            }
+            prefs.edit {
+                putBoolean("touch_nav_enabled", isNav)
+                putInt("swipe_style", swipeStyle)
+            }
+            updateTouchButtonUI()
+
+            val modeToast = mapOf(
+                0 to "[ Touch Controls: Disabled — No touch or swipe navigation enabled. ]",
+                1 to "[ Touch Controls: Navi Enabled — Tap on screen relative to Chip to move. ]",
+                2 to "[ Swipe Controls: Classic Enabled — Standard continuous swipe controls. ]",
+                3 to "[ Swipe Controls: Precise Enabled — Single discrete step per swipe flick. ]",
+                4 to "[ Swipe Controls: Fluid Enabled — Smooth continuous turns without lifting finger. ]",
+            )
+            showFeedback(modeToast[touchControlMode] ?: "", durationMs = 2500, scrollAfterFreeze = true)
         }
 
         // Game Speed Dropdown Initialization (Secret 10s Hold on START GAME to toggle)
@@ -601,16 +714,44 @@ class GameActivity : ComponentActivity() {
         val savedSpeedIdx = prefs.getInt("game_speed_index", 3) // Default to 100% (index 3)
         gameSpeedSpinner.setSelection(savedSpeedIdx.coerceIn(0, speedOptions.size - 1))
 
-        gameSpeedSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+        gameSpeedSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                 prefs.edit { putInt("game_speed_index", pos) }
             }
-            override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
+            override fun onNothingSelected(p0: AdapterView<*>?) {}
+        }
+
+        // Secret Section: Unlimited Time Toggle Button Initialization
+        val btnTimerToggle = findViewById<View>(R.id.btn_timer_toggle)
+        val tvTimerLabel = findViewById<TextView>(R.id.tv_timer_label)
+        var isUnlimitedTime = prefs.getBoolean("unlimited_time_enabled", false)
+
+        fun updateTimerButtonUI() {
+            if (isUnlimitedTime) {
+                tvTimerLabel?.text = "UNLIMITED"
+                tvTimerLabel?.setTextColor("#00FF00".toColorInt())
+            } else {
+                tvTimerLabel?.text = "NORMAL"
+                tvTimerLabel?.setTextColor("#CFFF04".toColorInt())
+            }
+            GameEngine.nativeSetUnlimitedTime(isUnlimitedTime)
+        }
+        updateTimerButtonUI()
+
+        btnTimerToggle?.setOnClickListener {
+            isUnlimitedTime = !isUnlimitedTime
+            prefs.edit { putBoolean("unlimited_time_enabled", isUnlimitedTime) }
+            updateTimerButtonUI()
+            if (isUnlimitedTime) {
+                showStaticVolumeFeedback("[ Unlimited Level Time Enabled ]", 2500, "#00FF00".toColorInt())
+            } else {
+                showStaticVolumeFeedback("[ Normal Level Timer Enabled ]", 2500)
+            }
         }
 
         // Secret 10-second hold on START GAME button to toggle/reset Game Speed
         var isLongHoldTriggered = false
-        val holdHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        val holdHandler = Handler(Looper.getMainLooper())
         val holdRunnable = Runnable {
             isLongHoldTriggered = true
             val currentlyVisible = gameSpeedContainer.isVisible
@@ -618,11 +759,11 @@ class GameActivity : ComponentActivity() {
                 gameSpeedContainer.visibility = View.GONE
                 gameSpeedSpinner.setSelection(3) // Reset to 100%
                 prefs.edit { putInt("game_speed_index", 3).putBoolean("game_speed_visible", false) }
-                android.widget.Toast.makeText(this, "Game Speed hidden & reset to 100%", android.widget.Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Game Speed hidden & reset to 100%", Toast.LENGTH_SHORT).show()
             } else {
                 gameSpeedContainer.visibility = View.VISIBLE
                 prefs.edit { putBoolean("game_speed_visible", true) }
-                android.widget.Toast.makeText(this, "Game Speed options unlocked!", android.widget.Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Game Speed options unlocked!", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -664,17 +805,17 @@ class GameActivity : ComponentActivity() {
         msTilesSpinner.setSelection(prefs.getInt("last_tileset_ms", 0).coerceAtMost(msTiles.size - 1))
         lynxTilesSpinner.setSelection(prefs.getInt("last_tileset_lynx", 0).coerceAtMost(lynxTiles.size - 1))
 
-        msTilesSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+        msTilesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                 prefs.edit { putInt("last_tileset_ms", pos) }
             }
-            override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
+            override fun onNothingSelected(p0: AdapterView<*>?) {}
         }
-        lynxTilesSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+        lynxTilesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                 prefs.edit { putInt("last_tileset_lynx", pos) }
             }
-            override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
+            override fun onNothingSelected(p0: AdapterView<*>?) {}
         }
 
         fun updateSets() {
@@ -693,8 +834,8 @@ class GameActivity : ComponentActivity() {
             val lastSetIdx = setFiles.indexOf(lastSet)
             if (lastSetIdx >= 0) setsSpinner.setSelection(lastSetIdx)
 
-            setsSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(p0: android.widget.AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
+            setsSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, pos: Int, p3: Long) {
                     val fileName = setFiles[pos]
                     Log.d(TAG, "Selected set: $fileName")
                     prefs.edit {
@@ -703,22 +844,28 @@ class GameActivity : ComponentActivity() {
                     }
                     updateLevelList(fileName, data, sets, save)
                 }
-                override fun onNothingSelected(p0: android.widget.AdapterView<*>?) {}
+                override fun onNothingSelected(p0: AdapterView<*>?) {}
             }
         }
 
         val btnRulesetToggle = findViewById<View>(R.id.btn_ruleset_toggle)
-        val tvRulesetLynx = findViewById<TextView>(R.id.tv_ruleset_lynx)
-        val tvRulesetMs = findViewById<TextView>(R.id.tv_ruleset_ms)
+        val ivRulesetIcon = findViewById<ImageView>(R.id.iv_ruleset_icon)
+        val tvRulesetLabel = findViewById<TextView>(R.id.tv_ruleset_label)
         isLynx = prefs.getBoolean("lynx_filter", false)
 
         fun updateRulesetButtonUI() {
             if (isLynx) {
-                tvRulesetLynx?.setTextColor("#00FF00".toColorInt())
-                tvRulesetMs?.setTextColor("#888888".toColorInt())
+                ivRulesetIcon?.setImageDrawable(null)
+                ivRulesetIcon?.setImageResource(R.drawable.ic_ruleset_lynx_png)
+                ivRulesetIcon?.clearColorFilter()
+                tvRulesetLabel?.text = "LYNX"
+                tvRulesetLabel?.setTextColor("#FF5F1F".toColorInt())
             } else {
-                tvRulesetLynx?.setTextColor("#888888".toColorInt())
-                tvRulesetMs?.setTextColor("#00FF00".toColorInt())
+                ivRulesetIcon?.setImageDrawable(null)
+                ivRulesetIcon?.setImageResource(R.drawable.ic_ruleset_ms_png)
+                ivRulesetIcon?.clearColorFilter()
+                tvRulesetLabel?.text = "MS"
+                tvRulesetLabel?.setTextColor("#00FFFF".toColorInt())
             }
         }
         updateRulesetButtonUI()
@@ -727,20 +874,21 @@ class GameActivity : ComponentActivity() {
             isLynx = !isLynx
             prefs.edit { putBoolean("lynx_filter", isLynx) }
             updateRulesetButtonUI()
-            touchAdapter.notifyDataSetChanged()
             if (isLynx) {
-                val pos = swipeStyleSpinner.selectedItemPosition
-                if (pos == 1) {
-                    autoJumpedFromTouchNavToNone = true
-                    swipeStyleSpinner.setSelection(0)
-                    swipeDescText.text = "Touch navigation is not available on Lynx ruleset."
+                if (touchControlMode == 1) {
+                    touchControlMode = 0
+                    prefs.edit {
+                        putBoolean("touch_nav_enabled", false)
+                        putInt("swipe_style", -1)
+                    }
+                    updateTouchButtonUI()
+                    showStaticVolumeFeedback("[ Ruleset: LYNX Activated — Touch navigation disabled ]", 2500, "#FF5F1F".toColorInt())
+                } else {
+                    showStaticVolumeFeedback("[ Ruleset: LYNX Activated ]", 2500, "#FF5F1F".toColorInt())
                 }
-                showStaticVolumeFeedback("[ Ruleset: LYNX ]", 1500)
             } else {
-                autoJumpedFromTouchNavToNone = false
-                val pos = swipeStyleSpinner.selectedItemPosition
-                swipeDescText.text = touchDescs[pos] ?: ""
-                showStaticVolumeFeedback("[ Ruleset: MS ]", 1500)
+                updateTouchButtonUI()
+                showStaticVolumeFeedback("[ Ruleset: MS Activated ]", 2500, "#00FFFF".toColorInt())
             }
             updateSets()
         }
@@ -773,8 +921,8 @@ class GameActivity : ComponentActivity() {
                 val bgmIsOn = bgmVol >= 5
                 val sfxIsOn = sfxVol >= 5
 
-                val isTouchNavSelected = (swipeStyleSpinner.selectedItemPosition == 1) && !isLynx
-                val selectedSwipeStyle = when (swipeStyleSpinner.selectedItemPosition) {
+                val isTouchNavSelected = (touchControlMode == 1) && !isLynx
+                val selectedSwipeStyle = when (touchControlMode) {
                     0 -> -1
                     1 -> 2
                     2 -> 2
@@ -818,18 +966,18 @@ class GameActivity : ComponentActivity() {
 
     private fun applyCustomFont(root: View) {
         try {
-            val typeface = android.graphics.Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
+            val typeface = Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
             applyTypefaceRecursive(root, typeface)
         } catch (e: Exception) {
             Log.e(TAG, "Error loading custom font", e)
         }
     }
 
-    private fun applyTypefaceRecursive(view: View, typeface: android.graphics.Typeface) {
+    private fun applyTypefaceRecursive(view: View, typeface: Typeface) {
         when (view) {
             is TextView -> {
                 if (view.paint.isFakeBoldText || (view.typeface?.isBold == true)) {
-                    view.setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    view.setTypeface(typeface, Typeface.BOLD)
                 } else {
                     view.typeface = typeface
                 }
@@ -842,49 +990,11 @@ class GameActivity : ComponentActivity() {
         }
     }
 
-    private fun createTouchControlAdapter(items: List<String>, isLynxProvider: () -> Boolean): ArrayAdapter<String> {
-        val typeface = try {
-            android.graphics.Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
-        } catch (_: Exception) { null }
 
-        return object : ArrayAdapter<String>(this, R.layout.spinner_item, items) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = super.getView(position, convertView, parent) as TextView
-                typeface?.let { view.typeface = it }
-                val isLynx = isLynxProvider()
-                val isTouchNav = position == 1
-                if (isLynx && isTouchNav) {
-                    view.paintFlags = view.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
-                    view.setTextColor("#888888".toColorInt())
-                } else {
-                    view.paintFlags = view.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
-                    view.setTextColor(Color.WHITE)
-                }
-                return view
-            }
-
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = super.getDropDownView(position, convertView, parent) as TextView
-                typeface?.let { view.typeface = it }
-                val isLynx = isLynxProvider()
-                val isTouchNav = position == 1
-                if (isLynx && isTouchNav) {
-                    view.paintFlags = view.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
-                    view.setTextColor("#888888".toColorInt())
-                } else {
-                    view.paintFlags = view.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
-                    view.setTextColor(Color.WHITE)
-                }
-                return view
-            }
-        }.apply {
-            setDropDownViewResource(R.layout.spinner_dropdown_item)
-        }
-    }
 
     private fun <T> createCustomFontAdapter(items: List<T>): ArrayAdapter<T> {
         val typeface = try {
-            android.graphics.Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
+            Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
         } catch (_: Exception) { null }
 
         return object : ArrayAdapter<T>(this, R.layout.spinner_item, items) {
@@ -906,6 +1016,8 @@ class GameActivity : ComponentActivity() {
     private fun startGame(data: String, res: String, sets: String, save: String, setName: String, levelNum: Int, tileset: String) {
         isGameRunning = true
         isEnginePaused = false
+        activeSetName = setName
+        activeTileset = tileset
         val prefs = getSharedPreferences("tworld_prefs", MODE_PRIVATE)
         val isTouchNavEnabled = prefs.getBoolean("touch_nav_enabled", false)
         val swipeStyle = prefs.getInt("swipe_style", 0)
@@ -914,8 +1026,10 @@ class GameActivity : ComponentActivity() {
         val speedValues = listOf(25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300)
         val savedSpeedIdx = prefs.getInt("game_speed_index", 3).coerceIn(0, speedValues.size - 1)
         val speedPercent = speedValues[savedSpeedIdx]
+        val isUnlimitedTime = prefs.getBoolean("unlimited_time_enabled", false)
 
         GameEngine.nativeSetGameSpeed(speedPercent)
+        GameEngine.nativeSetUnlimitedTime(isUnlimitedTime)
 
         // Start native engine thread BEFORE creating surface view so nativeIsRunning() is true
         GameEngine.nativeAudioResume()
@@ -945,15 +1059,12 @@ class GameActivity : ComponentActivity() {
         buttonRow.gravity = Gravity.CENTER_HORIZONTAL
         buttonRow.setPadding(0, 0, 0, 0) // No padding at the top
 
-        fun createWinBtn(iconRes: Int, onClick: () -> Unit): ImageButton {
-            return ImageButton(this).apply {
-                setImageResource(iconRes)
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                val pad = (10 * resources.displayMetrics.density).toInt()
-                setPadding(pad, pad, pad, pad)
+        fun createWinBtn(iconRes: Int, alignLeft: Boolean = false, onClick: () -> Unit): View {
+            val btnFrame = FrameLayout(this).apply {
                 setBackgroundResource(R.drawable.tw_button)
                 isFocusable = false
                 isFocusableInTouchMode = false
+                isClickable = true
                 layoutParams = LinearLayout.LayoutParams(
                     0,
                     (50 * resources.displayMetrics.density).toInt(),
@@ -961,11 +1072,48 @@ class GameActivity : ComponentActivity() {
                 )
                 setOnClickListener { onClick() }
             }
+
+            val iconView = ImageView(this).apply {
+                setImageResource(iconRes)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                val pad = (10 * resources.displayMetrics.density).toInt()
+
+                val lp = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                )
+                if (alignLeft) {
+                    lp.gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                    setPadding(pad, pad, pad / 2, pad)
+                } else {
+                    lp.gravity = Gravity.CENTER
+                    setPadding(pad, pad, pad, pad)
+                }
+                layoutParams = lp
+            }
+
+            btnFrame.addView(iconView)
+            return btnFrame
+        }
+
+        val hasCameraCutout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val rootInsets = window?.decorView?.rootWindowInsets
+            val cutout = rootInsets?.displayCutout
+            if (cutout != null) {
+                val screenWidth = resources.displayMetrics.widthPixels
+                val centerX = screenWidth / 2f
+                val marginPx = 60 * resources.displayMetrics.density
+                cutout.boundingRects.any { rect ->
+                    (rect.left <= (centerX + marginPx)) && (rect.right >= (centerX - marginPx))
+                }
+            } else false
+        } else {
+            false
         }
 
         buttonRow.addView(createWinBtn(R.drawable.ic_game_menu) { GameEngine.nativeTypeChar(GameEngine.TWK_ESCAPE) })
         buttonRow.addView(
-            createWinBtn(R.drawable.ic_game_pause) {
+            createWinBtn(R.drawable.ic_game_pause, alignLeft = hasCameraCutout) {
                 GameEngine.nativeTypeChar(GameEngine.TWC_PAUSEGAME)
             },
         )
@@ -1034,10 +1182,10 @@ class GameActivity : ComponentActivity() {
         titleTextLocal.setTextColor(Color.WHITE)
         titleTextLocal.textSize = 14f
         try {
-            val customTypeface = android.graphics.Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
-            titleTextLocal.setTypeface(customTypeface, android.graphics.Typeface.BOLD)
+            val customTypeface = Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
+            titleTextLocal.setTypeface(customTypeface, Typeface.BOLD)
         } catch (_: Exception) {
-            titleTextLocal.typeface = android.graphics.Typeface.MONOSPACE
+            titleTextLocal.typeface = Typeface.MONOSPACE
             titleTextLocal.paint.isFakeBoldText = true
         }
         titleBar.addView(titleTextLocal)
@@ -1066,10 +1214,32 @@ class GameActivity : ComponentActivity() {
             val arrowContainer = overlay.findViewById<View>(R.id.container_arrow_keys)
             val dpadContainer = overlay.findViewById<View>(R.id.container_dpad_cross)
 
+            // Option 1: Automatic Ergonomic Thumbzone calculation
+            val metrics = resources.displayMetrics
+            val density = metrics.density
+            val isTabletOrFoldable = resources.configuration.smallestScreenWidthDp >= 600
+
+            val windowInsets = ViewCompat.getRootWindowInsets(windowFrame)
+                ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val safeBottomPx = windowInsets?.bottom ?: 0
+            val safeSidePx = windowInsets?.left ?: 0
+
+            val autoBottomMarginPx = if (isTabletOrFoldable) {
+                (metrics.heightPixels * 0.18f).toInt()
+            } else {
+                (48 * density).toInt() + safeBottomPx
+            }
+
             when (controlsStyle) {
-                1 -> {
+                1 -> { // Arrow Keys (Always Centered Horizontally)
                     arrowContainer?.visibility = View.VISIBLE
                     dpadContainer?.visibility = View.GONE
+                    (arrowContainer?.layoutParams as? RelativeLayout.LayoutParams)?.let { lp ->
+                        lp.addRule(RelativeLayout.CENTER_HORIZONTAL)
+                        lp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
+                        lp.bottomMargin = autoBottomMarginPx
+                        arrowContainer.layoutParams = lp
+                    }
                 }
                 2 -> { // D-Pad Left
                     arrowContainer?.visibility = View.GONE
@@ -1077,9 +1247,10 @@ class GameActivity : ComponentActivity() {
                     (dpadContainer?.layoutParams as? RelativeLayout.LayoutParams)?.let { lp ->
                         lp.removeRule(RelativeLayout.ALIGN_PARENT_END)
                         lp.addRule(RelativeLayout.ALIGN_PARENT_START)
-                        lp.marginStart = (16 * resources.displayMetrics.density).toInt()
+                        lp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
+                        lp.marginStart = (16 * density).toInt() + safeSidePx
                         lp.marginEnd = 0
-                        lp.bottomMargin = (60 * resources.displayMetrics.density).toInt()
+                        lp.bottomMargin = autoBottomMarginPx
                         dpadContainer.layoutParams = lp
                     }
                 }
@@ -1089,9 +1260,10 @@ class GameActivity : ComponentActivity() {
                     (dpadContainer?.layoutParams as? RelativeLayout.LayoutParams)?.let { lp ->
                         lp.removeRule(RelativeLayout.ALIGN_PARENT_START)
                         lp.addRule(RelativeLayout.ALIGN_PARENT_END)
+                        lp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
                         lp.marginStart = 0
-                        lp.marginEnd = (16 * resources.displayMetrics.density).toInt()
-                        lp.bottomMargin = (60 * resources.displayMetrics.density).toInt()
+                        lp.marginEnd = (16 * density).toInt() + safeSidePx
+                        lp.bottomMargin = autoBottomMarginPx
                         dpadContainer.layoutParams = lp
                     }
                 }
@@ -1100,6 +1272,28 @@ class GameActivity : ComponentActivity() {
             gameContainer.addView(overlay)
             setupDpad(overlay)
             applyCustomFont(overlay)
+
+            val scaleFactor = when (prefs.getInt("onscreen_controls_scale_idx", 1)) {
+                0 -> 0.75f
+                1 -> 1.00f
+                2 -> 1.25f
+                3 -> 1.50f
+                else -> 1.00f
+            }
+
+            if (scaleFactor != 1.00f) {
+                val targetView = if (controlsStyle == 1) arrowContainer else dpadContainer
+                targetView?.post {
+                    targetView.pivotX = when (controlsStyle) {
+                        3 -> targetView.width.toFloat()
+                        1 -> targetView.width.toFloat() / 2f
+                        else -> 0f
+                    }
+                    targetView.pivotY = targetView.height.toFloat()
+                    targetView.scaleX = scaleFactor
+                    targetView.scaleY = scaleFactor
+                }
+            }
         }
 
         windowFrame.addView(gameContainer)
@@ -1121,16 +1315,13 @@ class GameActivity : ComponentActivity() {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         v.isPressed = true
-                        v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                        v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                         val endState = GameEngine.nativeGetLevelEndState()
                         if (endState > 0) {
-                            // Level Completed -> Proceed to Next Level
                             GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = true)
                         } else if (endState < 0) {
-                            // Level Failed / Died / Time Out -> Restart Level
                             GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = true)
                         } else {
-                            // Game Active -> Send directional move key
                             GameEngine.nativeSendKey(twk, down = true)
                         }
                         v.alpha = 0.8f
@@ -1194,19 +1385,120 @@ class GameActivity : ComponentActivity() {
 
         setupContainer(view)
         setupContainer(view.findViewById(R.id.container_arrow_keys))
-        setupContainer(view.findViewById(R.id.container_dpad_cross))
+
+        // Advanced Drag & Slide Unified D-Pad Handling
+        val dpadContainer = view.findViewById<View>(R.id.container_dpad_cross)
+        val dpadBtns = listOf(
+            R.id.dpad_btn_up to GameEngine.TWK_UP,
+            R.id.dpad_btn_down to GameEngine.TWK_DOWN,
+            R.id.dpad_btn_left to GameEngine.TWK_LEFT,
+            R.id.dpad_btn_right to GameEngine.TWK_RIGHT,
+        )
+        
+        // Pass touches through the visual buttons to the container
+        dpadBtns.forEach { (id, _) ->
+            view.findViewById<View>(id)?.apply {
+                isClickable = false
+                isFocusable = false
+                alpha = 0.35f
+            }
+        }
+
+        var currentDpadKey = -1
+        var currentDpadBtn: View? = null
+        
+        dpadContainer?.setOnTouchListener { v, event ->
+            val endState = GameEngine.nativeGetLevelEndState()
+            if (endState != 0) {
+                // Use default win/death retry behavior
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        if (endState > 0) GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = true)
+                        else GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = true)
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        if (endState > 0) GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = false)
+                        else GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = false)
+                        v.performClick()
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        if (endState > 0) GameEngine.nativeSendKey(GameEngine.TWK_RETURN, down = false)
+                        else GameEngine.nativeSendKey(GameEngine.TWC_SAMELEVEL, down = false)
+                    }
+                }
+                return@setOnTouchListener true
+            }
+
+            val width = v.width.toFloat()
+            val height = v.height.toFloat()
+            val x = event.x - (width / 2)
+            val y = event.y - (height / 2)
+
+            var newKey = -1
+            var newBtnId = -1
+
+            // 15% center deadzone
+            val deadzoneSq = (width * 0.15f) * (width * 0.15f)
+            if (((x * x) + (y * y)) > deadzoneSq) {
+                if (abs(x) > abs(y)) {
+                    if (x > 0) {
+                        newKey = GameEngine.TWK_RIGHT
+                        newBtnId = R.id.dpad_btn_right
+                    } else {
+                        newKey = GameEngine.TWK_LEFT
+                        newBtnId = R.id.dpad_btn_left
+                    }
+                } else {
+                    if (y > 0) {
+                        newKey = GameEngine.TWK_DOWN
+                        newBtnId = R.id.dpad_btn_down
+                    } else {
+                        newKey = GameEngine.TWK_UP
+                        newBtnId = R.id.dpad_btn_up
+                    }
+                }
+            }
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                    if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                        v.alpha = 0.8f
+                    }
+                    if (newKey != currentDpadKey) {
+                        if (currentDpadKey != -1) {
+                            GameEngine.nativeSendKey(currentDpadKey, down = false)
+                            currentDpadBtn?.alpha = 0.35f
+                        }
+                        if (newKey != -1) {
+                            GameEngine.nativeSendKey(newKey, down = true)
+                            currentDpadBtn = view.findViewById(newBtnId)
+                            currentDpadBtn?.alpha = 0.8f
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        } else {
+                            currentDpadBtn = null
+                        }
+                        currentDpadKey = newKey
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.alpha = 0.35f
+                    if (currentDpadKey != -1) {
+                        GameEngine.nativeSendKey(currentDpadKey, down = false)
+                        currentDpadBtn?.alpha = 0.35f
+                    }
+                    currentDpadKey = -1
+                    currentDpadBtn = null
+                    if (event.actionMasked == MotionEvent.ACTION_UP) v.performClick()
+                }
+            }
+            true
+        }
 
         // Arrow Keys (4 Buttons)
         view.findViewById<View>(R.id.btn_up)?.let { setupBtn(it, GameEngine.TWK_UP) }
         view.findViewById<View>(R.id.btn_down)?.let { setupBtn(it, GameEngine.TWK_DOWN) }
         view.findViewById<View>(R.id.btn_left)?.let { setupBtn(it, GameEngine.TWK_LEFT) }
         view.findViewById<View>(R.id.btn_right)?.let { setupBtn(it, GameEngine.TWK_RIGHT) }
-
-        // D-Pad Cross (Directional Cross)
-        view.findViewById<View>(R.id.dpad_btn_up)?.let { setupBtn(it, GameEngine.TWK_UP) }
-        view.findViewById<View>(R.id.dpad_btn_down)?.let { setupBtn(it, GameEngine.TWK_DOWN) }
-        view.findViewById<View>(R.id.dpad_btn_left)?.let { setupBtn(it, GameEngine.TWK_LEFT) }
-        view.findViewById<View>(R.id.dpad_btn_right)?.let { setupBtn(it, GameEngine.TWK_RIGHT) }
     }
 
 
@@ -1238,7 +1530,7 @@ class GameActivity : ComponentActivity() {
             }
             
             val typeface = try {
-                android.graphics.Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
+                Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
             } catch (_: Exception) { null }
 
             val adapter = object : ArrayAdapter<String>(this, R.layout.spinner_item, levelNames) {
@@ -1276,10 +1568,10 @@ class GameActivity : ComponentActivity() {
     private fun showPasswordDialog(dataDir: String, setsDir: String) {
         val input = EditText(this).apply {
             hint = "ENTER PASSWORD"
-            filters = arrayOf(android.text.InputFilter.LengthFilter(10))
+            filters = arrayOf(InputFilter.LengthFilter(10))
             isSingleLine = true
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
-            typeface = android.graphics.Typeface.MONOSPACE
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+            typeface = Typeface.MONOSPACE
             setTextColor(Color.WHITE)
             setBackgroundResource(R.drawable.tw_field)
             setPadding(30, 20, 30, 20)
@@ -1320,9 +1612,9 @@ class GameActivity : ComponentActivity() {
         val density = resources.displayMetrics.density
 
         val customTypeface = try {
-            android.graphics.Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
+            Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
         } catch (_: Exception) {
-            android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD)
+            Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
         }
 
         // Single Root container with NO border lines
@@ -1356,7 +1648,7 @@ class GameActivity : ComponentActivity() {
             text = "[SCORES] - $displaySetName"
             setTextColor(Color.WHITE)
             textSize = 14f
-            setTypeface(customTypeface, android.graphics.Typeface.BOLD)
+            setTypeface(customTypeface, Typeface.BOLD)
         }
         titleBar.addView(titleText)
         rootLayout.addView(titleBar)
@@ -1375,7 +1667,7 @@ class GameActivity : ComponentActivity() {
             text = "SOLVED: ${progress.solvedCount} / ${progress.totalLevels}        TOTAL SCORE: $formattedTotalScore"
             setTextColor(Color.YELLOW)
             textSize = 12f
-            setTypeface(customTypeface, android.graphics.Typeface.BOLD)
+            setTypeface(customTypeface, Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(0, (2 * density).toInt(), 0, (8 * density).toInt())
         }
@@ -1392,7 +1684,7 @@ class GameActivity : ComponentActivity() {
                 text = txt
                 setTextColor("#FFCC00".toColorInt()) // Gold color
                 textSize = 10f
-                setTypeface(customTypeface, android.graphics.Typeface.BOLD)
+                setTypeface(customTypeface, Typeface.BOLD)
                 if (alignEnd) gravity = Gravity.END
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
             }
@@ -1433,9 +1725,9 @@ class GameActivity : ComponentActivity() {
                         text = txt
                         setTextColor(color)
                         textSize = 10f
-                        setTypeface(customTypeface, android.graphics.Typeface.BOLD)
+                        setTypeface(customTypeface, Typeface.BOLD)
                         isSingleLine = true
-                        ellipsize = android.text.TextUtils.TruncateAt.END
+                        ellipsize = TextUtils.TruncateAt.END
                         if (alignEnd) gravity = Gravity.END
                         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
                     }
@@ -1465,7 +1757,7 @@ class GameActivity : ComponentActivity() {
             text = "CLOSE"
             setTextColor(Color.WHITE)
             textSize = 18f
-            setTypeface(customTypeface, android.graphics.Typeface.BOLD)
+            setTypeface(customTypeface, Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 0)
             includeFontPadding = false
@@ -1523,9 +1815,9 @@ class GameActivity : ComponentActivity() {
             }
 
             val levelName = currentSetProgress?.levels?.getOrNull(levelNum - 1)?.name ?: "Level $levelNum"
-            android.widget.Toast.makeText(this, "Unlocked Level $levelNum: $levelName", android.widget.Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Unlocked Level $levelNum: $levelName", Toast.LENGTH_LONG).show()
         } else {
-            android.widget.Toast.makeText(this, "Invalid Password", android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Invalid Password", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1541,6 +1833,17 @@ class GameActivity : ComponentActivity() {
         }
         val sortedSub = list.asSequence().filter { it != "Tile World" }.sortedWith(String.CASE_INSENSITIVE_ORDER).toList()
         return listOf("Tile World") + sortedSub
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (isGameRunning && ::gameView.isInitialized) {
+            hideSystemUI()
+            if (!GameEngine.nativeIsGamePaused()) {
+                GameEngine.nativeTypeChar(GameEngine.TWC_PAUSEGAME)
+            }
+        }
     }
 
     override fun onResume() {
@@ -1625,10 +1928,10 @@ class GameActivity : ComponentActivity() {
             titleTextLocal.text = fullTitle
             titleTextLocal.textSize = 14f
             try {
-                val customTypeface = android.graphics.Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
-                titleTextLocal.setTypeface(customTypeface, android.graphics.Typeface.BOLD)
+                val customTypeface = Typeface.createFromAsset(assets, "fonts/FSEX300.ttf")
+                titleTextLocal.setTypeface(customTypeface, Typeface.BOLD)
             } catch (_: Exception) {
-                titleTextLocal.typeface = android.graphics.Typeface.MONOSPACE
+                titleTextLocal.typeface = Typeface.MONOSPACE
                 titleTextLocal.paint.isFakeBoldText = true
             }
         }

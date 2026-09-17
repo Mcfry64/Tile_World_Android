@@ -20,6 +20,7 @@ enum {
 /* TRUE if the program is running without a user interface.
  */
 extern int batchmode;
+extern int g_unlimited_time;
 
 #ifdef __cplusplus
 extern "C"

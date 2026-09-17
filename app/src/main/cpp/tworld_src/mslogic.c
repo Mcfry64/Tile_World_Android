@@ -11,6 +11,7 @@
 #include    "state.h"
 #include    "random.h"
 #include    "logic.h"
+#include    "play.h"
 
 #ifdef NDEBUG
 #define	_assert(test)	((void)0)
@@ -2386,7 +2387,7 @@ static int advancegame(gamelogic* logic) {
     updatesliplist();
 
     timeoffset() = 0;
-    if (timelimit()) {
+    if (timelimit() && !g_unlimited_time) {
         if (currenttime() >= timelimit()) {
             chipstatus() = CHIP_OUTOFTIME;
             addsoundeffect(SND_TIME_OUT);

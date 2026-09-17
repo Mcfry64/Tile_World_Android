@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 plugins {
     alias(libs.plugins.android.application)
 }
@@ -13,7 +15,9 @@ android {
     defaultConfig {
         applicationId = "dev.mcfry64.tworld"
         minSdk = 26
-        targetSdk = 36
+        targetSdk {
+            version = release(36)
+        }
         versionCode = 400
         versionName = "4.0"
 
@@ -22,7 +26,7 @@ android {
             cmake {
                 cppFlags += "-std=c++17"
                 arguments += listOf(
-                    "-DANDROID_STL=c++_shared"
+                    "-DANDROID_STL=c++_shared",
                 )
                 abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
             }
@@ -45,6 +49,8 @@ android {
             version = "3.22.1"
         }
     }
+    buildToolsVersion = "36.0.0"
+    ndkVersion = "28.2.13676358"
 }
 
 dependencies {
