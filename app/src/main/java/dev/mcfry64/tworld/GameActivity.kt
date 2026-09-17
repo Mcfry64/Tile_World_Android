@@ -1918,13 +1918,18 @@ class GameActivity : ComponentActivity() {
     fun updateGameTitle(levelNum: Int, name: String, author: String) {
         val titleTextLocal = gameTitleText ?: return
         runOnUiThread {
-            var fullTitle = if (name.isNotEmpty() && !name.equals("Level $levelNum", ignoreCase = true)) {
+            val levelInfo = currentSetProgress?.levels?.find { it.levelNumber == levelNum }
+            val resolvedName = if (name.isNotEmpty() && !name.equals("Level $levelNum", ignoreCase = true)) {
                 name
             } else {
-                "Level $levelNum"
+                levelInfo?.name?.ifEmpty { "Level $levelNum" } ?: "Level $levelNum"
             }
-            val finalAuthor = author.ifEmpty { "Chuck Sommerville" }
-            fullTitle += " by $finalAuthor"
+            val resolvedAuthor = author.ifEmpty { levelInfo?.author ?: "" }
+
+            var fullTitle = resolvedName
+            if (resolvedAuthor.isNotEmpty()) {
+                fullTitle += " by $resolvedAuthor"
+            }
             titleTextLocal.text = fullTitle
             titleTextLocal.textSize = 14f
             try {

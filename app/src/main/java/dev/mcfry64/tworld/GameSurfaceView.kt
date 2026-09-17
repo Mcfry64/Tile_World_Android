@@ -545,17 +545,6 @@ class GameSurfaceView(
                     }
                 }
 
-                val currentLevel = GameEngine.nativeGetCurrentLevelNumber()
-                if ((currentLevel != lastLevelNum) && (currentLevel > 0)) {
-                    val name = GameEngine.nativeGetCurrentLevelName()
-                    val author = GameEngine.nativeGetCurrentLevelAuthor()
-                    (context as? GameActivity)?.let { activity ->
-                        activity.updateGameTitle(currentLevel, name, author)
-                        MusicManager.playMusicForLevel(activity, currentLevel)
-                    }
-                    lastLevelNum = currentLevel
-                }
-
                 val w = GameEngine.nativeGetScreenWidth()
                 val h = GameEngine.nativeGetScreenHeight()
                 if ((w <= 0) || (h <= 0)) { sleep(16); continue }
@@ -568,6 +557,17 @@ class GameSurfaceView(
                 val bmp = gameBitmap ?: continue
 
                 GameEngine.nativeCopyPixels(bmp)
+
+                val currentLevel = GameEngine.nativeGetCurrentLevelNumber()
+                if ((currentLevel != lastLevelNum) && (currentLevel > 0)) {
+                    val name = GameEngine.nativeGetCurrentLevelName()
+                    val author = GameEngine.nativeGetCurrentLevelAuthor()
+                    (context as? GameActivity)?.let { activity ->
+                        activity.updateGameTitle(currentLevel, name, author)
+                        MusicManager.playMusicForLevel(activity, currentLevel)
+                    }
+                    lastLevelNum = currentLevel
+                }
 
                 val kbReq = GameEngine.nativeGetKeyboardRequest()
                 if (kbReq > 0) post {

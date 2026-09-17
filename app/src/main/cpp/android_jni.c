@@ -296,6 +296,13 @@ JNI_FN(nativeStart)(JNIEnv *env, jclass cls, jstring jSetName, jint jLevelNum, j
     LOGI("nativeStart: Starting engine for set=%s level=%d tileset=%s",
          s_start_set, s_start_level, tileset_arg);
 
+    pthread_mutex_lock(&fb_mutex);
+    s_cached_level_num = s_start_level;
+    s_cached_end_state = 0;
+    s_cached_name[0]   = '\0';
+    s_cached_author[0] = '\0';
+    pthread_mutex_unlock(&fb_mutex);
+
     s_running = 1;
     static char s_tileset_file[256];
     snprintf(s_tileset_file, sizeof(s_tileset_file), "%s", tileset_arg);
