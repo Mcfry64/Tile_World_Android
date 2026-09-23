@@ -145,21 +145,6 @@ object GameEngine {
         val names = try { context.assets.list(assetSubDir) } catch (_: Exception) { null }
             ?: return
 
-        // Clean up files in destination that no longer exist in assets
-        val destFileDir = File(destDir)
-        if (destFileDir.exists()) {
-            destFileDir.listFiles()?.forEach { existingFile ->
-                if (!names.contains(existingFile.name)) {
-                    // Do not delete user custom theme directories inside res/sfx or res/bgm
-                    val isCustomSfxTheme = assetSubDir.endsWith("sfx") && existingFile.isDirectory && File(existingFile, "rc").exists()
-                    val isCustomBgmTheme = assetSubDir.endsWith("bgm") && existingFile.isDirectory && (existingFile.listFiles()?.any { it.extension.lowercase() == "ogg" } == true)
-                    if (!isCustomSfxTheme && !isCustomBgmTheme) {
-                        existingFile.deleteRecursively()
-                    }
-                }
-            }
-        }
-
         for (name in names) {
             val assetPath = if (assetSubDir.isEmpty()) name else "$assetSubDir/$name"
             val dest = File(destDir, name)
